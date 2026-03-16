@@ -28,7 +28,7 @@ const TC = {
 };
 const ts = (t) => TC[t] || { bg: "#eee", c: "#444" };
 const F = "Apple SD Gothic Neo, sans-serif";
-const IS = { width:"100%", padding:"11px 13px", borderRadius:10, border:"1.5px solid #DDE6EE", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:10 };
+const INP = { width:"100%", padding:"11px 13px", borderRadius:10, border:"1.5px solid #DDE6EE", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:10 };
 function Login({ onLogin }) {
 const [name, setName] = useState("");
 const [pw, setPw] = useState("");
