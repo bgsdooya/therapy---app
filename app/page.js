@@ -215,3 +215,78 @@ return (
 );
 })}
 </>}
+{tab === "patients" && <>
+<button onClick={() => setModal("addPatient")} style={{ ...bp, width: "100%", marginBottom: 11 }}>+ 환자 추가</button>
+{patients.map(p => (
+<div key={p.id} style={{ background: "#fff", borderRadius: 11, padding: "12px 14px", marginBottom: 9, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+<div>
+<p style={{ margin: 0, fontWeight: 700, color: "#1A2B3C" }}>{p.name}</p>
+<p style={{ margin: "1px 0 0", fontSize: 11, color: "#7A8FA0" }}>병록번호: {p.password}</p>
+</div>
+<button onClick={() => delPatient(p.id, p.name)} style={bd}>삭제</button>
+</div>
+))}
+</>}
+
+{tab === "admins" && <>
+<button onClick={() => setModal("addAdmin")} style={{ ...bp, width: "100%", marginBottom: 11 }}>+ 관리자 추가</button>
+{admins.map(a => (
+<div key={a.id} style={{ background: "#fff", borderRadius: 11, padding: "12px 14px", marginBottom: 9 }}>
+<p style={{ margin: 0, fontWeight: 700, color: "#1A2B3C" }}>🛡️ {a.name}</p>
+</div>
+))}
+</>}
+</div>
+
+{modal && (
+<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", zIndex: 100 }}>
+<div style={{ background: "#fff", borderRadius: "18px 18px 0 0", padding: "22px 18px 36px", width: "100%", maxWidth: 480, margin: "0 auto" }}>
+<h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 800, color: "#1A2B3C" }}>
+{modal === "addPatient" ? "환자 추가" : modal === "addSchedule" ? "시간표 추가" : modal === "editSchedule" ? "시간표 수정" : "관리자 추가"}
+</h3>
+{modal === "addPatient" && <>
+<input placeholder="환자 이름" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} style={inp} />
+<input placeholder="병록번호" value={form.password || ""} onChange={e => setForm({ ...form, password: e.target.value })} style={inp} />
+</>}
+{modal === "addAdmin" && <>
+<input placeholder="관리자 이름" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} style={inp} />
+<input placeholder="비밀번호" value={form.password || ""} onChange={e => setForm({ ...form, password: e.target.value })} style={inp} />
+</>}
+{(modal === "addSchedule" || modal === "editSchedule") && <>
+{modal === "addSchedule" && (
+<select value={form.patient_name || sel} onChange={e => setForm({ ...form, patient_name: e.target.value })} style={inp}>
+{patients.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+</select>
+)}
+<select value={form.day_type || day} onChange={e => setForm({ ...form, day_type: e.target.value })} style={inp}>
+<option value="weekday">평일</option>
+<option value="weekend">주말</option>
+</select>
+<select value={form.type || ""} onChange={e => setForm({ ...form, type: e.target.value })} style={inp}>
+<option value="">치료 종류</option>
+{["물리치료", "작업치료", "연하치료", "인지치료", "운동치료", "기타"].map(t => (
+<option key={t} value={t}>{t}</option>
+))}
+</select>
+<input placeholder="시작 시간 (예: 09:00)" value={form.start_time || ""} onChange={e => setForm({ ...form, start_time: e.target.value })} style={inp} />
+<input placeholder="종료 시간 (예: 10:00)" value={form.end_time || ""} onChange={e => setForm({ ...form, end_time: e.target.value })} style={inp} />
+<input placeholder="치료실 (예: 1치료실)" value={form.room || ""} onChange={e => setForm({ ...form, room: e.target.value })} style={inp} />
+<input placeholder="치료사 이름" value={form.therapist || ""} onChange={e => setForm({ ...form, therapist: e.target.value })} style={inp} />
+</>}
+<div style={{ display: "flex", gap: 9 }}>
+<button onClick={closeM} style={{ flex: 1, padding: 11, borderRadius: 9, border: "1.5px solid #DDE6EE", background: "#fff", color: "#7A8FA0", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
+<button onClick={modal === "addPatient" ? savePatient : modal === "addAdmin" ? saveAdmin : saveSchedule} style={{ flex: 2, ...bp }}>저장</button>
+</div>
+</div>
+</div>
+)}
+</div>
+);
+}
+
+export default function App() {
+const [user, setUser] = useState(null);
+if (!user) return <Login onLogin={setUser} />;
+if (user.role === "admin") return <Admin user={user} onLogout={() => setUser(null)} />;
+return <Patient user={user} onLogout={() => setUser(null)} />;
+}
