@@ -26,6 +26,9 @@ const TC = {
   운동치료: { bg: "#E0F7FA", c: "#00838F" },
   기타: { bg: "#F5F5F5", c: "#555" },
 };
+const ts = (t) => TC[t] || ["#eee","#444"];
+const F = "Apple SD Gothic Neo, sans-serif";
+const IS = { width:"100%", padding:"11px
 function Login({ onLogin }) {
 const [name, setName] = useState("");
 const [pw, setPw] = useState("");
