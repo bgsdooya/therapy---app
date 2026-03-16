@@ -6,7 +6,6 @@ const nextConfig = {
 }
 module.exports = nextConfig
 
-2026.03.16 16:10 정용진
 "use client";
 import { useState, useEffect } from "react";
 
