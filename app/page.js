@@ -26,7 +26,6 @@ const TC = {
   운동치료: { bg: "#E0F7FA", c: "#00838F" },
   기타: { bg: "#F5F5F5", c: "#555" },
 };
-const ts = (t) => TC[t] || { bg: "#eee", c: "#444" };
 const F = "Apple SD Gothic Neo, sans-serif";
 const IS = { width:"100%", padding:"11px 13px", borderRadius:10, border:"1.5px solid #DDE6EE", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:10 };
 function Login({ onLogin }) {
