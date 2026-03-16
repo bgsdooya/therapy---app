@@ -150,3 +150,68 @@ if (!form.name || !form.password) return;
 await api("users", { method: "POST", body: JSON.stringify({ name: form.name, password: form.password, role: "admin" }) });
 showMsg("추가되었습니다."); closeM(); loadA();
 };
+const bp = { background: "#2E7D9F", color: "#fff", border: "none", borderRadius: 10, padding: "11px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" };
+const bd = { background: "#E05C5C", color: "#fff", border: "none", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" };
+const be = { background: "#E8F4F8", color: "#2E7D9F", border: "none", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" };
+
+return (
+<div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: F, maxWidth: 480, margin: "0 auto" }}>
+<div style={{ background: "linear-gradient(135deg,#1A3A2A,#2E6B4F)", padding: "48px 20px 18px", color: "#fff" }}>
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+<div>
+<p style={{ margin: 0, fontSize: 11, opacity: 0.7 }}>관리자 🛡️</p>
+<h2 style={{ margin: "2px 0 0", fontSize: 19, fontWeight: 800 }}>{user.name}</h2>
+</div>
+<button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 7, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>로그아웃</button>
+</div>
+<div style={{ display: "flex", gap: 5, marginTop: 14 }}>
+{[["schedules", "📅 시간표"], ["patients", "👥 환자"], ["admins", "🛡️ 관리자"]].map(([k, l]) => (
+<button key={k} onClick={() => setTab(k)}
+style={{ flex: 1, padding: "8px 3px", borderRadius: 8, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.15)", color: tab === k ? "#2E6B4F" : "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+{l}
+</button>
+))}
+</div>
+</div>
+
+{msg && <div style={{ background: "#2E7D9F", color: "#fff", textAlign: "center", padding: 9, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+
+<div style={{ padding: 14 }}>
+{tab === "schedules" && <>
+<div style={{ background: "#fff", borderRadius: 11, padding: 12, marginBottom: 11 }}>
+<select value={sel} onChange={e => setSel(e.target.value)} style={{ ...inp, marginBottom: 7 }}>
+{patients.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+</select>
+<div style={{ display: "flex", gap: 5 }}>
+{[["weekday", "평일"], ["weekend", "주말"]].map(([k, l]) => (
+<button key={k} onClick={() => setDay(k)}
+style={{ flex: 1, padding: 7, borderRadius: 7, border: `2px solid ${day === k ? "#2E7D9F" : "#DDE6EE"}`, background: day === k ? "#E8F4F8" : "#fff", color: day === k ? "#2E7D9F" : "#7A8FA0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+{l}
+</button>
+))}
+</div>
+</div>
+<button onClick={() => setModal("addSchedule")} style={{ ...bp, width: "100%", marginBottom: 11 }}>+ 시간표 추가</button>
+{load
+? <p style={{ textAlign: "center", color: "#7A8FA0" }}>불러오는 중...</p>
+: schedules.length === 0
+? <p style={{ textAlign: "center", color: "#7A8FA0" }}>등록된 시간표가 없습니다</p>
+: schedules.map(s => {
+const st = ts(s.type);
+return (
+<div key={s.id} style={{ background: "#fff", borderRadius: 11, padding: 12, marginBottom: 9, borderLeft: `4px solid ${st.c}` }}>
+<div style={{ display: "flex", justifyContent: "space-between" }}>
+<div>
+<span style={{ background: st.bg, color: st.c, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 18 }}>{s.type}</span>
+<p style={{ margin: "5px 0 2px", fontWeight: 700, color: "#1A2B3C" }}>{s.start_time} ~ {s.end_time}</p>
+<p style={{ margin: 0, fontSize: 11, color: "#7A8FA0" }}>🏠 {s.room} · 👩‍⚕️ {s.therapist}</p>
+</div>
+<div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+<button onClick={() => { setForm(s); setModal("editSchedule"); }} style={be}>수정</button>
+<button onClick={() => delSchedule(s.id)} style={bd}>삭제</button>
+</div>
+</div>
+</div>
+);
+})}
+</>}
