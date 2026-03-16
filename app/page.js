@@ -4,7 +4,6 @@ const nextConfig = {
     appDir: true
   }
 }
-module.exports = nextConfig
 
 "use client";
 import { useState, useEffect } from "react";
