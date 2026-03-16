@@ -84,3 +84,69 @@ return (
 </div>
 );
 }
+function Admin({ user, onLogout }) {
+const [tab, setTab] = useState("schedules");
+const [patients, setPatients] = useState([]);
+const [schedules, setSchedules] = useState([]);
+const [admins, setAdmins] = useState([]);
+const [sel, setSel] = useState("");
+const [day, setDay] = useState("weekday");
+const [load, setLoad] = useState(false);
+const [modal, setModal] = useState(null);
+const [form, setForm] = useState({});
+const [msg, setMsg] = useState("");
+
+const loadP = async () => {
+const d = await api("users?role=eq.patient&order=name.asc");
+setPatients(d || []);
+if (!sel && d && d.length) setSel(d[0].name);
+};
+const loadA = async () => {
+const d = await api("users?role=eq.admin&order=name.asc");
+setAdmins(d || []);
+};
+const loadS = async (p, dy) => {
+if (!p) return;
+setLoad(true);
+const d = await api(`schedules?patient_name=eq.${encodeURIComponent(p)}&day_type=eq.${dy}&order=start_time.asc`);
+setSchedules(d || []);
+setLoad(false);
+};
+
+useEffect(() => { loadP(); loadA(); }, []);
+useEffect(() => { if (sel) loadS(sel, day); }, [sel, day]);
+
+const showMsg = (t) => { setMsg(t); setTimeout(() => setMsg(""), 2500); };
+const closeM = () => { setModal(null); setForm({}); };
+
+const savePatient = async () => {
+if (!form.name || !form.password) return;
+await api("users", { method: "POST", body: JSON.stringify({ name: form.name, password: form.password, role: "patient" }) });
+showMsg("추가되었습니다."); closeM(); loadP();
+};
+const delPatient = async (id, name) => {
+if (!confirm(`${name} 삭제?`)) return;
+await api(`users?id=eq.${id}`, { method: "DELETE" });
+await api(`schedules?patient_name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
+showMsg("삭제되었습니다."); loadP();
+};
+const saveSchedule = async () => {
+const { id, day_type, type, start_time, end_time, room, therapist } = form;
+if (!type || !start_time || !end_time || !room || !therapist) { showMsg("모든 항목을 입력해주세요."); return; }
+if (id) {
+await api(`schedules?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ day_type, type, start_time, end_time, room, therapist }) });
+} else {
+await api("schedules", { method: "POST", body: JSON.stringify({ patient_name: form.patient_name || sel, day_type: day_type || day, type, start_time, end_time, room, therapist }) });
+}
+showMsg("저장되었습니다."); closeM(); loadS(sel, day);
+};
+const delSchedule = async (id) => {
+if (!confirm("삭제?")) return;
+await api(`schedules?id=eq.${id}`, { method: "DELETE" });
+showMsg("삭제되었습니다."); loadS(sel, day);
+};
+const saveAdmin = async () => {
+if (!form.name || !form.password) return;
+await api("users", { method: "POST", body: JSON.stringify({ name: form.name, password: form.password, role: "admin" }) });
+showMsg("추가되었습니다."); closeM(); loadA();
+};
