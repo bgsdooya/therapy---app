@@ -1,10 +1,3 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    appDir: true
-  }
-}
-
 "use client";
 import { useState, useEffect } from "react";
 
