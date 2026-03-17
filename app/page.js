@@ -130,73 +130,109 @@ function Patient({ user, onLogout }) {
   const getSchedulesForTime = (time) =>
     list.filter(s => s.start_time <= time && s.end_time > time);
 
+  // 오늘 요일에 해당하는 치료만 추출 (중복 제거 - 시작시간 기준)
+  const todayItems = list.filter(s => isActiveToday(s.week_days));
+  const otherItems = list.filter(s => !isActiveToday(s.week_days));
+
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif", maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding: "48px 20px 20px", color: "#fff" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
+      {/* 헤더 */}
+      <div style={{ background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding: "48px 20px 24px", color: "#fff" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", maxWidth: 600, margin: "0 auto" }}>
           <div>
-            <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>안녕하세요 👋</p>
-            <h2 style={{ margin: "3px 0 0", fontSize: 20, fontWeight: 800 }}>{user.name}님의 시간표</h2>
+            <p style={{ margin: 0, fontSize: 15, opacity: 0.8 }}>안녕하세요 👋</p>
+            <h2 style={{ margin: "4px 0 0", fontSize: 26, fontWeight: 800 }}>{user.name}님의 시간표</h2>
           </div>
-          <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>로그아웃</button>
+          <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 10, color: "#fff", padding: "9px 16px", fontSize: 14, cursor: "pointer" }}>로그아웃</button>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 20, maxWidth: 600, margin: "20px auto 0" }}>
           {[["weekday", "📅 평일"], ["weekend", "🌅 주말"]].map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: 9, borderRadius: 9, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.15)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.15)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 800, fontSize: 16, cursor: "pointer" }}>{l}</button>
           ))}
         </div>
       </div>
-      <div style={{ padding: 14 }}>
+
+      {/* 카드 목록 */}
+      <div style={{ padding: "16px 16px 40px", maxWidth: 600, margin: "0 auto" }}>
         {load ? (
-          <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p>
+          <p style={{ textAlign: "center", color: "#7A8FA0", padding: 40, fontSize: 18 }}>불러오는 중...</p>
+        ) : list.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#7A8FA0", padding: 40, fontSize: 18 }}>등록된 시간표가 없습니다</p>
         ) : (
-          <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#2E7D9F", color: "#fff" }}>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "20%", textAlign: "center" }}>시간</th>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "55%", textAlign: "center" }}>치료 종류</th>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "25%", textAlign: "center" }}>담당 치료사</th>
-                </tr>
-              </thead>
-              <tbody>
-                {TIMES.map((time, i) => {
-                  const items = getSchedulesForTime(time);
-                  if (items.length === 0) {
-                    return (
-                      <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                        <td style={{ padding: "14px 16px", fontSize: 18, color: "#B0C4D0", fontWeight: 600, textAlign: "center" }}>{time}</td>
-                        <td colSpan={2} style={{ padding: "14px 16px" }}></td>
-                      </tr>
-                    );
-                  }
-                  return items.map((s, si) => {
-                    const st = getStyle(s.type);
-                    const active = isActiveToday(s.week_days);
-                    const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
-                    return (
-                      <tr key={`${time}-${si}`} style={{ borderBottom: "1px solid #EEF4F8", background: active ? st.bg : "#F5F5F5", opacity: active ? 1 : 0.3 }}>
-                        <td style={{ padding: "18px 16px", fontSize: 20, color: active ? "#2E5F7A" : "#aaa", fontWeight: 800, textAlign: "center", whiteSpace: "nowrap" }}>
-                          {si === 0 ? time : ""}
-                        </td>
-                        <td style={{ padding: "18px 16px", fontSize: 20, fontWeight: 800, color: active ? st.c : "#bbb", textAlign: "center" }}>
-                          {isRFT(s.type) && <span style={{ fontSize: 13, background: "#C2185B", color: "#fff", borderRadius: 5, padding: "3px 7px", marginRight: 6, verticalAlign: "middle" }}>RFT</span>}
-                          {s.type}
+          <>
+            {/* 오늘 해당 치료 */}
+            {todayItems.length > 0 && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#2E7D9F", marginBottom: 10, marginTop: 4, letterSpacing: 0.5 }}>
+                  오늘 치료
+                </div>
+                {todayItems.map((s, i) => {
+                  const st = getStyle(s.type);
+                  const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                  return (
+                    <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
+                      <div style={{ padding: "16px 18px" }}>
+                        {/* 치료 종류 뱃지 */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "4px 12px" }}>
+                            {isRFT(s.type) && <span style={{ fontSize: 12, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 6 }}>RFT</span>}
+                            {s.type}
+                          </span>
                           {s.week_days && (
-                            <span style={{ marginLeft: 6, fontSize: 13, background: wdColor, color: "#fff", borderRadius: 5, padding: "3px 8px", verticalAlign: "middle" }}>{s.week_days}</span>
+                            <span style={{ fontSize: 13, background: wdColor, color: "#fff", borderRadius: 6, padding: "3px 10px", fontWeight: 700 }}>{s.week_days}</span>
                           )}
-                        </td>
-                        <td style={{ padding: "18px 16px", fontSize: 19, fontWeight: 700, color: active ? "#1A3A4C" : "#bbb", textAlign: "center" }}>
-                          {isRFT(s.type) ? "🏋️ 운동치료실" : (s.therapist || "-")}
-                        </td>
-                      </tr>
-                    );
-                  });
+                        </div>
+                        {/* 시간 */}
+                        <div style={{ fontSize: 28, fontWeight: 900, color: "#1A2B3C", marginBottom: 6 }}>
+                          {s.start_time} ~ {s.end_time}
+                        </div>
+                        {/* 장소/치료사 */}
+                        <div style={{ fontSize: 16, color: "#5A7A8A", display: "flex", gap: 12 }}>
+                          <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
+                          <span>👩‍⚕️ {isRFT(s.type) ? "" : (s.therapist || "-")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
                 })}
-              </tbody>
-            </table>
-            {list.length === 0 && <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>등록된 시간표가 없습니다</p>}
-          </div>
+              </>
+            )}
+
+            {/* 오늘 아닌 치료 */}
+            {otherItems.length > 0 && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#aaa", marginBottom: 10, marginTop: 16, letterSpacing: 0.5 }}>
+                  다른 요일 치료
+                </div>
+                {otherItems.map((s, i) => {
+                  const st = getStyle(s.type);
+                  const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                  return (
+                    <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderLeft: "5px solid #ddd", opacity: 0.45 }}>
+                      <div style={{ padding: "14px 18px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "3px 10px" }}>
+                            {isRFT(s.type) && <span style={{ fontSize: 11, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 5px", marginRight: 5 }}>RFT</span>}
+                            {s.type}
+                          </span>
+                          {s.week_days && (
+                            <span style={{ fontSize: 12, background: wdColor, color: "#fff", borderRadius: 6, padding: "3px 9px", fontWeight: 700 }}>{s.week_days}</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: "#888", marginBottom: 4 }}>
+                          {s.start_time} ~ {s.end_time}
+                        </div>
+                        <div style={{ fontSize: 14, color: "#aaa" }}>
+                          <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
+                          {!isRFT(s.type) && <span style={{ marginLeft: 12 }}>👩‍⚕️ {s.therapist || "-"}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
