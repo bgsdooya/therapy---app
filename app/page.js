@@ -26,9 +26,17 @@ const TC = {
   인지치료: { bg: "#F3E8FF", c: "#7B2EAF" },
   운동치료: { bg: "#E0F7FA", c: "#00838F" },
   기타: { bg: "#F5F5F5", c: "#555" },
+  RFT: { bg: "#FFF0F5", c: "#C2185B" },
 };
 const TYPES = ["물리치료", "작업치료", "연하치료", "인지치료", "운동치료", "기타"];
-const ts = (t) => TC[t] || { bg: "#eee", c: "#444" };
+const RFT_ITEMS = [
+  "코끼리자전거", "자동상하지자전거", "전기(FES)", "서기(Tilt)",
+  "서기(ST)", "서기(큐보드)", "트래드밀", "스텝퍼",
+  "발자전거", "계단", "평행봉",
+];
+const ts = (t) => TC[t] || TC["RFT_ITEM"] || { bg: "#FFF0F5", c: "#C2185B" };
+const isRFT = (t) => RFT_ITEMS.includes(t);
+const getStyle = (t) => isRFT(t) ? TC["RFT"] : (TC[t] || { bg: "#eee", c: "#444" });
 
 const TIMES = [
   "08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00",
@@ -135,12 +143,21 @@ function Patient({ user, onLogout }) {
               <tbody>
                 {TIMES.map((time, i) => {
                   const s = getScheduleForTime(time);
-                  const st = s ? ts(s.type) : null;
+                  const st = s ? getStyle(s.type) : null;
                   return (
                     <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: s ? st.bg : i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
                       <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>{time}</td>
-                      <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: s ? st.c : "#ccc", textAlign: "center" }}>{s ? s.type : "-"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: 11, color: s ? "#1A2B3C" : "#ccc", textAlign: "center" }}>{s ? s.therapist : "-"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: s ? st.c : "#ccc", textAlign: "center" }}>
+                        {s ? (
+                          <span>
+                            {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 4 }}>RFT</span>}
+                            {s.type}
+                          </span>
+                        ) : "-"}
+                      </td>
+                      <td style={{ padding: "10px 8px", fontSize: 11, color: s ? "#1A2B3C" : "#ccc", textAlign: "center" }}>
+                        {s ? (isRFT(s.type) ? "운동치료실" : s.therapist) : "-"}
+                      </td>
                     </tr>
                   );
                 })}
@@ -175,11 +192,13 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
     });
   }, [schedule, time]);
 
-  const st = schedule ? ts(schedule.type) : null;
+  const st = schedule ? getStyle(schedule.type) : null;
+  const rft = isRFT(form.type);
 
   const handleSave = async () => {
-    if (!form.type || !form.therapist) return;
-    await onSave(time, form, schedule);
+    if (!form.type) return;
+    if (!rft && !form.therapist) return;
+    await onSave(time, { ...form, therapist: rft ? "" : form.therapist, room: rft ? "운동치료실" : form.room }, schedule);
     setEditing(false);
   };
 
@@ -189,18 +208,42 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
     setEditing(false);
   };
 
+  // RFT 선택 시 room 자동 세팅
+  const handleTypeChange = (val) => {
+    setForm(f => ({
+      ...f,
+      type: val,
+      room: isRFT(val) ? "운동치료실" : f.room,
+      therapist: isRFT(val) ? "" : f.therapist,
+    }));
+  };
+
   if (editing) {
     return (
       <td style={{ padding: 6, verticalAlign: "top", background: "#FFFDE7", borderBottom: "1px solid #F0F4F8" }}>
-        <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
+        <select value={form.type} onChange={e => handleTypeChange(e.target.value)}
           style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none" }}>
           <option value="">치료 종류</option>
-          {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          <optgroup label="── 일반 치료 ──">
+            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </optgroup>
+          <optgroup label="── RFT (운동치료실) ──">
+            {RFT_ITEMS.map(t => <option key={t} value={t}>{t}</option>)}
+          </optgroup>
         </select>
-        <input value={form.therapist} onChange={e => setForm({ ...form, therapist: e.target.value })}
-          placeholder="치료사" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
-        <input value={form.room} onChange={e => setForm({ ...form, room: e.target.value })}
-          placeholder="치료실" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
+        {!rft && (
+          <input value={form.therapist} onChange={e => setForm({ ...form, therapist: e.target.value })}
+            placeholder="치료사" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
+        )}
+        {rft && (
+          <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#C2185B", background: "#FFF0F5", borderRadius: 6, border: "1.5px solid #F8BBD0" }}>
+            🏋️ 운동치료실 · 치료사 없음
+          </div>
+        )}
+        {!rft && (
+          <input value={form.room} onChange={e => setForm({ ...form, room: e.target.value })}
+            placeholder="치료실" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
+        )}
         <select value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}
           style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 6, outline: "none" }}>
           {TIMES.filter(t => t > time).map(t => <option key={t} value={t}>{t}까지</option>)}
@@ -221,9 +264,17 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
       onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
       {schedule ? (
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: st.c }}>{schedule.type}</div>
-          <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{schedule.therapist}</div>
-          {schedule.room && <div style={{ fontSize: 10, color: "#999" }}>{schedule.room}</div>}
+          <div style={{ fontSize: 12, fontWeight: 700, color: st.c }}>
+            {isRFT(schedule.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 3 }}>RFT</span>}
+            {schedule.type}
+          </div>
+          {schedule.therapist
+            ? <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{schedule.therapist}</div>
+            : isRFT(schedule.type)
+              ? <div style={{ fontSize: 10, color: "#C2185B", marginTop: 2 }}>운동치료실</div>
+              : null
+          }
+          {schedule.room && !isRFT(schedule.type) && <div style={{ fontSize: 10, color: "#999" }}>{schedule.room}</div>}
         </div>
       ) : (
         <span style={{ color: "#DDE6EE", fontSize: 18 }}>+</span>
