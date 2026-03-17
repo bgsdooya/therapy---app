@@ -225,6 +225,7 @@ const be={background:"#E8F4F8",color:"#2E7D9F",border:"none",borderRadius:7,padd
 <button onClick={closeM} style={{ flex:1, padding:11, borderRadius:9, border:"1.5px solid #DDE6EE", background:"#fff", color:"#7A8FA0", fontWeight:700, fontSize:13, cursor:"pointer" }}>취소</button>
 <button onClick={modal==="addPatient"?savePatient:modal==="addAdmin"?saveAdmin:saveSchedule} style={{ flex:2, ...bp }}>저장</button>
 </div>
+</div>
 }
 export default function App() {
 const [user, setUser] = useState(null);
