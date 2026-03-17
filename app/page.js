@@ -19,53 +19,51 @@ async function api(path, opt = {}) {
 }
 
 const TC = {
-  물리치료:   { bg: "#E8F4F8", c: "#2E7D9F" },
-  작업치료:   { bg: "#EAF6EE", c: "#2E7D52" },
-  연하치료:   { bg: "#FFF3E0", c: "#E07A00" },
-  인지치료:   { bg: "#F3E8FF", c: "#7B2EAF" },
-  운동치료:   { bg: "#E0F7FA", c: "#00838F" },
-  기타:       { bg: "#F5F5F5", c: "#555555" },
+  물리치료:  { bg: "#E8F4F8", c: "#2E7D9F" },
+  작업치료:  { bg: "#EAF6EE", c: "#2E7D52" },
+  연하치료:  { bg: "#FFF3E0", c: "#E07A00" },
+  인지치료:  { bg: "#F3E8FF", c: "#7B2EAF" },
+  운동치료:  { bg: "#E0F7FA", c: "#00838F" },
+  기타:      { bg: "#F5F5F5", c: "#555555" },
 };
-
 const TYPES = ["물리치료", "작업치료", "연하치료", "인지치료", "운동치료", "기타"];
-
 const RFT_ITEMS = [
   "코끼리자전거", "자동상하지자전거", "전기(FES)", "서기(Tilt)",
   "서기(ST)", "서기(큐보드)", "트래드밀", "스텝퍼",
   "발자전거", "계단", "평행봉",
 ];
-
 const RFT_STYLE = { bg: "#FFF0F5", c: "#C2185B" };
+const WEEK_DAYS_OPTIONS = ["", "월수금", "화목"];
+const WEEK_DAYS_LABEL = { "": "매일", "월수금": "월수금", "화목": "화목" };
+const WEEK_DAYS_COLOR = { "": null, "월수금": "#1565C0", "화목": "#6A1B9A" };
 
 function getStyle(type) {
-  if (RFT_ITEMS.includes(type)) return RFT_STYLE;
-  return TC[type] || { bg: "#eee", c: "#444" };
+  return RFT_ITEMS.includes(type) ? RFT_STYLE : (TC[type] || { bg: "#eee", c: "#444" });
 }
+function isRFT(type) { return RFT_ITEMS.includes(type); }
 
-function isRFT(type) {
-  return RFT_ITEMS.includes(type);
+// 오늘 요일이 해당 week_days에 포함되는지
+function isActiveToday(week_days) {
+  if (!week_days) return true;
+  const day = new Date().getDay(); // 0=일,1=월,2=화,3=수,4=목,5=금,6=토
+  if (week_days === "월수금") return [1, 3, 5].includes(day);
+  if (week_days === "화목") return [2, 4].includes(day);
+  return true;
 }
 
 const TIMES = [
   "08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00",
   "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00",
 ];
-
 function nextTime(t) {
   const idx = TIMES.indexOf(t);
   return idx >= 0 && idx < TIMES.length - 1 ? TIMES[idx + 1] : t;
 }
 
 const baseInp = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1.5px solid #DDE6EE",
-  fontSize: 13,
-  outline: "none",
-  boxSizing: "border-box",
-  marginBottom: 8,
-  fontFamily: "inherit",
+  width: "100%", padding: "10px 12px", borderRadius: 8,
+  border: "1.5px solid #DDE6EE", fontSize: 13, outline: "none",
+  boxSizing: "border-box", marginBottom: 8, fontFamily: "inherit",
 };
 
 // ─────────────────────────────────────
@@ -87,9 +85,7 @@ function Login({ onLogin }) {
     } catch (e) {
       console.error(e);
       setErr("오류가 발생했습니다. 다시 시도해주세요.");
-    } finally {
-      setLoad(false);
-    }
+    } finally { setLoad(false); }
   };
 
   return (
@@ -126,13 +122,14 @@ function Patient({ user, onLogout }) {
   useEffect(() => {
     setLoad(true);
     api(`schedules?patient_name=eq.${encodeURIComponent(user.name)}&day_type=eq.${tab}&order=start_time.asc`)
-      .then(d => { setList(d || []); })
+      .then(d => setList(d || []))
       .catch(() => setList([]))
       .finally(() => setLoad(false));
   }, [tab, user.name]);
 
-  const getScheduleForTime = (time) =>
-    list.find(s => s.start_time <= time && s.end_time > time) || null;
+  // 같은 시간대에 여러 항목 가능 (월수금/화목 중복)
+  const getSchedulesForTime = (time) =>
+    list.filter(s => s.start_time <= time && s.end_time > time);
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif", maxWidth: 480, margin: "0 auto" }}>
@@ -165,24 +162,38 @@ function Patient({ user, onLogout }) {
               </thead>
               <tbody>
                 {TIMES.map((time, i) => {
-                  const s = getScheduleForTime(time);
-                  const st = s ? getStyle(s.type) : null;
-                  return (
-                    <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: s ? st.bg : i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                      <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>{time}</td>
-                      <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: s ? st.c : "#ccc", textAlign: "center" }}>
-                        {s ? (
-                          <span>
-                            {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 4 }}>RFT</span>}
-                            {s.type}
-                          </span>
-                        ) : "-"}
-                      </td>
-                      <td style={{ padding: "10px 8px", fontSize: 11, color: s ? "#1A2B3C" : "#ccc", textAlign: "center" }}>
-                        {s ? (isRFT(s.type) ? "운동치료실" : (s.therapist || "-")) : "-"}
-                      </td>
-                    </tr>
-                  );
+                  const items = getSchedulesForTime(time);
+                  if (items.length === 0) {
+                    return (
+                      <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
+                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>{time}</td>
+                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#ccc", textAlign: "center" }}>-</td>
+                        <td style={{ padding: "10px 8px", fontSize: 11, color: "#ccc", textAlign: "center" }}>-</td>
+                      </tr>
+                    );
+                  }
+                  return items.map((s, si) => {
+                    const st = getStyle(s.type);
+                    const active = isActiveToday(s.week_days);
+                    const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                    return (
+                      <tr key={`${time}-${si}`} style={{ borderBottom: "1px solid #F0F4F8", background: active ? st.bg : "#F8F8F8", opacity: active ? 1 : 0.45 }}>
+                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>
+                          {si === 0 ? time : ""}
+                        </td>
+                        <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: active ? st.c : "#aaa", textAlign: "center" }}>
+                          {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 4 }}>RFT</span>}
+                          {s.type}
+                          {s.week_days && (
+                            <span style={{ marginLeft: 4, fontSize: 9, background: wdColor, color: "#fff", borderRadius: 3, padding: "1px 5px" }}>{s.week_days}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px 8px", fontSize: 11, color: active ? "#1A2B3C" : "#aaa", textAlign: "center" }}>
+                          {isRFT(s.type) ? "운동치료실" : (s.therapist || "-")}
+                        </td>
+                      </tr>
+                    );
+                  });
                 })}
               </tbody>
             </table>
@@ -197,31 +208,28 @@ function Patient({ user, onLogout }) {
 // ─────────────────────────────────────
 // 시간표 편집 셀
 // ─────────────────────────────────────
-function ScheduleCell({ time, schedule, onSave, onDelete }) {
+function ScheduleCell({ time, schedules, onSave, onDelete }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    type: "",
-    therapist: "",
-    room: "",
-    end_time: nextTime(time),
-  });
+  const [editTarget, setEditTarget] = useState(null); // null = 새항목
+  const [form, setForm] = useState({ type: "", therapist: "", room: "", end_time: nextTime(time), week_days: "" });
 
-  useEffect(() => {
-    setForm({
-      type: schedule ? schedule.type : "",
-      therapist: schedule ? (schedule.therapist || "") : "",
-      room: schedule ? (schedule.room || "") : "",
-      end_time: schedule ? schedule.end_time : nextTime(time),
-    });
-  }, [schedule, time]);
+  const openNew = () => {
+    setEditTarget(null);
+    setForm({ type: "", therapist: "", room: "", end_time: nextTime(time), week_days: "" });
+    setEditing(true);
+  };
 
-  const st = schedule ? getStyle(schedule.type) : null;
+  const openEdit = (s) => {
+    setEditTarget(s);
+    setForm({ type: s.type, therapist: s.therapist || "", room: s.room || "", end_time: s.end_time, week_days: s.week_days || "" });
+    setEditing(true);
+  };
+
   const rft = isRFT(form.type);
 
   const handleTypeChange = (val) => {
     setForm(prev => ({
-      ...prev,
-      type: val,
+      ...prev, type: val,
       therapist: isRFT(val) ? "" : prev.therapist,
       room: isRFT(val) ? "운동치료실" : prev.room,
     }));
@@ -230,18 +238,14 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
   const handleSave = async () => {
     if (!form.type) return;
     if (!rft && !form.therapist.trim()) return;
-    const saveData = {
-      ...form,
-      therapist: rft ? "" : form.therapist,
-      room: rft ? "운동치료실" : form.room,
-    };
-    await onSave(time, saveData, schedule);
+    const saveData = { ...form, therapist: rft ? "" : form.therapist, room: rft ? "운동치료실" : form.room };
+    await onSave(time, saveData, editTarget);
     setEditing(false);
   };
 
   const handleDelete = async () => {
-    if (!schedule) return;
-    await onDelete(schedule.id);
+    if (!editTarget) return;
+    await onDelete(editTarget.id);
     setEditing(false);
   };
 
@@ -260,6 +264,16 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
           </optgroup>
         </select>
 
+        {/* 요일 선택 */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+          {WEEK_DAYS_OPTIONS.map(wd => (
+            <button key={wd} onClick={() => setForm(p => ({ ...p, week_days: wd }))}
+              style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: `1.5px solid ${form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#DDE6EE"}`, background: form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#fff", color: form.week_days === wd ? "#fff" : "#555", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+              {WEEK_DAYS_LABEL[wd]}
+            </button>
+          ))}
+        </div>
+
         {rft ? (
           <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#C2185B", background: "#FFF0F5", borderRadius: 6, border: "1.5px solid #F8BBD0" }}>
             🏋️ 운동치료실 · 치료사 없음
@@ -277,40 +291,40 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
 
         <div style={{ display: "flex", gap: 4 }}>
           <button onClick={handleSave} style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#2E7D9F", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>저장</button>
-          {schedule && <button onClick={handleDelete} style={{ padding: "5px 8px", borderRadius: 6, border: "none", background: "#E05C5C", color: "#fff", fontSize: 11, cursor: "pointer" }}>삭제</button>}
+          {editTarget && <button onClick={handleDelete} style={{ padding: "5px 8px", borderRadius: 6, border: "none", background: "#E05C5C", color: "#fff", fontSize: 11, cursor: "pointer" }}>삭제</button>}
           <button onClick={() => setEditing(false)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #DDE6EE", background: "#fff", fontSize: 11, cursor: "pointer" }}>취소</button>
         </div>
       </td>
     );
   }
 
+  // 비편집 상태 - 여러 항목 표시
   return (
-    <td
-      onClick={() => setEditing(true)}
-      style={{ padding: "8px 6px", cursor: "pointer", background: schedule ? st.bg : "transparent", borderBottom: "1px solid #F0F4F8", textAlign: "center" }}
-      onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
-      onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-    >
-      {schedule ? (
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: st.c }}>
-            {isRFT(schedule.type) && (
-              <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 3 }}>RFT</span>
-            )}
-            {schedule.type}
-          </div>
-          {isRFT(schedule.type) ? (
-            <div style={{ fontSize: 10, color: "#C2185B", marginTop: 2 }}>운동치료실</div>
-          ) : (
-            <>
-              {schedule.therapist && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{schedule.therapist}</div>}
-              {schedule.room && <div style={{ fontSize: 10, color: "#999" }}>{schedule.room}</div>}
-            </>
-          )}
-        </div>
-      ) : (
-        <span style={{ color: "#DDE6EE", fontSize: 18 }}>+</span>
-      )}
+    <td style={{ padding: "4px 6px", borderBottom: "1px solid #F0F4F8", verticalAlign: "middle" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {schedules.map((s, i) => {
+          const st = getStyle(s.type);
+          const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+          return (
+            <div key={i} onClick={() => openEdit(s)}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 6, background: st.bg, cursor: "pointer", transition: "opacity .15s" }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: st.c }}>
+                  {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 3px", marginRight: 3 }}>RFT</span>}
+                  {s.type}
+                  {s.week_days && <span style={{ marginLeft: 4, fontSize: 9, background: wdColor, color: "#fff", borderRadius: 3, padding: "1px 4px" }}>{s.week_days}</span>}
+                </div>
+                {!isRFT(s.type) && s.therapist && <div style={{ fontSize: 10, color: "#666" }}>{s.therapist}</div>}
+                {isRFT(s.type) && <div style={{ fontSize: 10, color: "#C2185B" }}>운동치료실</div>}
+              </div>
+            </div>
+          );
+        })}
+        <button onClick={openNew}
+          style={{ padding: "3px 0", borderRadius: 6, border: "1.5px dashed #DDE6EE", background: "transparent", color: "#BCC8D4", fontSize: 16, cursor: "pointer", lineHeight: 1 }}>+</button>
+      </div>
     </td>
   );
 }
@@ -329,19 +343,14 @@ function Admin({ user, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const flash = (m) => {
-    setMsg(m);
-    setTimeout(() => setMsg(""), 2500);
-  };
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
   const loadPatients = async () => {
     const d = await api("users?order=name.asc");
     setPatients((d || []).filter(u => u.role === "patient"));
   };
 
-  useEffect(() => {
-    loadPatients().catch(console.error);
-  }, []);
+  useEffect(() => { loadPatients().catch(console.error); }, []);
 
   useEffect(() => {
     if (!selectedPatient) return;
@@ -352,8 +361,8 @@ function Admin({ user, onLogout }) {
       .finally(() => setLoad(false));
   }, [selectedPatient, tab]);
 
-  const getScheduleForTime = (time) =>
-    schedules.find(s => s.start_time <= time && s.end_time > time) || null;
+  const getSchedulesForTime = (time) =>
+    schedules.filter(s => s.start_time <= time && s.end_time > time);
 
   const reloadSchedules = async () => {
     if (!selectedPatient) return;
@@ -367,7 +376,7 @@ function Admin({ user, onLogout }) {
       if (existing) {
         await api(`schedules?id=eq.${existing.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ type: form.type, therapist: form.therapist, room: form.room, end_time: form.end_time }),
+          body: JSON.stringify({ type: form.type, therapist: form.therapist, room: form.room, end_time: form.end_time, week_days: form.week_days }),
         });
       } else {
         await api("schedules", {
@@ -380,17 +389,14 @@ function Admin({ user, onLogout }) {
             type: form.type,
             therapist: form.therapist,
             room: form.room,
+            week_days: form.week_days,
           }),
         });
       }
       await reloadSchedules();
       flash("저장되었습니다 ✓");
-    } catch (e) {
-      console.error(e);
-      flash("저장 실패");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { console.error(e); flash("저장 실패"); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
@@ -399,12 +405,8 @@ function Admin({ user, onLogout }) {
       await api(`schedules?id=eq.${id}`, { method: "DELETE" });
       await reloadSchedules();
       flash("삭제되었습니다");
-    } catch (e) {
-      console.error(e);
-      flash("삭제 실패");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { console.error(e); flash("삭제 실패"); }
+    finally { setSaving(false); }
   };
 
   const handleAddPatient = async () => {
@@ -413,14 +415,8 @@ function Admin({ user, onLogout }) {
     try {
       const saved = await api("users", {
         method: "POST",
-        body: JSON.stringify({
-          name: newPatient.name.trim(),
-          password: newPatient.password.trim(),
-          room: newPatient.room.trim(),
-          role: "patient",
-        }),
+        body: JSON.stringify({ name: newPatient.name.trim(), password: newPatient.password.trim(), room: newPatient.room.trim(), role: "patient" }),
       });
-      // 응답에서 바로 추가하고, 동시에 목록도 새로고침
       const added = Array.isArray(saved) ? saved[0] : saved;
       if (added && added.id) {
         setPatients(prev => {
@@ -435,12 +431,8 @@ function Admin({ user, onLogout }) {
       setNewPatient({ name: "", password: "", room: "" });
       setShowAddPatient(false);
       flash("환자가 추가되었습니다 ✓");
-    } catch (e) {
-      console.error(e);
-      flash("추가 실패 - 다시 시도해주세요");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { console.error(e); flash("추가 실패 - 다시 시도해주세요"); }
+    finally { setSaving(false); }
   };
 
   const handleDeletePatient = async (p) => {
@@ -452,19 +444,14 @@ function Admin({ user, onLogout }) {
       await loadPatients();
       if (selectedPatient && selectedPatient.id === p.id) setSelectedPatient(null);
       flash("삭제되었습니다");
-    } catch (e) {
-      console.error(e);
-      flash("삭제 실패");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { console.error(e); flash("삭제 실패"); }
+    finally { setSaving(false); }
   };
 
   const smallInp = { width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
-      {/* 헤더 */}
       <div style={{ background: "linear-gradient(135deg,#1A3A5C,#2E7D9F)", padding: "48px 20px 20px", color: "#fff" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -480,67 +467,41 @@ function Admin({ user, onLogout }) {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px", display: "flex", gap: 14, flexWrap: "wrap" }}>
-
         {/* 환자 목록 */}
         <div style={{ width: 200, flexShrink: 0 }}>
           <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>환자 목록</span>
-              <button
-                onClick={() => setShowAddPatient(p => !p)}
-                style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, color: "#fff", width: 26, height: 26, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>+</button>
+              <button onClick={() => setShowAddPatient(p => !p)}
+                style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, color: "#fff", width: 26, height: 26, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
-
             {showAddPatient && (
               <div style={{ padding: 10, background: "#FFFDE7", borderBottom: "1px solid #F0F4F8" }}>
-                <input
-                  value={newPatient.name}
-                  onChange={e => setNewPatient(p => ({ ...p, name: e.target.value }))}
-                  placeholder="이름 *"
-                  style={smallInp}
-                />
-                <input
-                  value={newPatient.password}
-                  onChange={e => setNewPatient(p => ({ ...p, password: e.target.value }))}
-                  placeholder="병록번호(비밀번호) *"
-                  style={smallInp}
-                />
-                <input
-                  value={newPatient.room}
-                  onChange={e => setNewPatient(p => ({ ...p, room: e.target.value }))}
-                  placeholder="병실 (선택)"
-                  style={smallInp}
-                />
+                <input value={newPatient.name} onChange={e => setNewPatient(p => ({ ...p, name: e.target.value }))} placeholder="이름 *" style={smallInp} />
+                <input value={newPatient.password} onChange={e => setNewPatient(p => ({ ...p, password: e.target.value }))} placeholder="병록번호(비밀번호) *" style={smallInp} />
+                <input value={newPatient.room} onChange={e => setNewPatient(p => ({ ...p, room: e.target.value }))} placeholder="병실 (선택)" style={smallInp} />
                 <div style={{ display: "flex", gap: 4 }}>
-                  <button
-                    onClick={handleAddPatient}
-                    disabled={saving}
+                  <button onClick={handleAddPatient} disabled={saving}
                     style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: saving ? "#aaa" : "#2E7D9F", color: "#fff", fontSize: 11, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
                     {saving ? "추가 중..." : "추가"}
                   </button>
-                  <button
-                    onClick={() => { setShowAddPatient(false); setNewPatient({ name: "", password: "", room: "" }); }}
+                  <button onClick={() => { setShowAddPatient(false); setNewPatient({ name: "", password: "", room: "" }); }}
                     style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #DDE6EE", background: "#fff", fontSize: 11, cursor: "pointer" }}>취소</button>
                 </div>
               </div>
             )}
-
             {patients.length === 0 && !showAddPatient && (
               <p style={{ textAlign: "center", color: "#7A8FA0", padding: 20, fontSize: 12 }}>환자 없음</p>
             )}
-
             {patients.map(p => (
-              <div
-                key={p.id}
+              <div key={p.id}
                 style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #F0F4F8", background: selectedPatient && selectedPatient.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                onClick={() => setSelectedPatient(p)}
-              >
+                onClick={() => setSelectedPatient(p)}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: selectedPatient && selectedPatient.id === p.id ? 700 : 500, color: selectedPatient && selectedPatient.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
                   {p.room && <div style={{ fontSize: 10, color: "#7A8FA0" }}>{p.room}</div>}
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
+                <button onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
                   style={{ background: "none", border: "none", color: "#ccc", fontSize: 14, cursor: "pointer", padding: "2px 4px" }}>✕</button>
               </div>
             ))}
@@ -571,16 +532,16 @@ function Admin({ user, onLogout }) {
                   <thead>
                     <tr style={{ background: "#F8FAFC" }}>
                       <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: "#7A8FA0", width: "22%", textAlign: "center", borderBottom: "2px solid #EEF2F7" }}>시간</th>
-                      <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: "#7A8FA0", textAlign: "center", borderBottom: "2px solid #EEF2F7" }}>치료 내용 (클릭하여 편집)</th>
+                      <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: "#7A8FA0", textAlign: "center", borderBottom: "2px solid #EEF2F7" }}>치료 내용 (클릭하여 편집 · + 로 추가)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {TIMES.map((time, i) => {
-                      const s = getScheduleForTime(time);
+                      const items = getSchedulesForTime(time);
                       return (
                         <tr key={time}>
-                          <td style={{ padding: "8px 10px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center", borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>{time}</td>
-                          <ScheduleCell time={time} schedule={s} onSave={handleSave} onDelete={handleDelete} />
+                          <td style={{ padding: "8px 10px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center", borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC", verticalAlign: "top" }}>{time}</td>
+                          <ScheduleCell time={time} schedules={items} onSave={handleSave} onDelete={handleDelete} />
                         </tr>
                       );
                     })}
