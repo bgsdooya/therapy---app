@@ -335,8 +335,8 @@ function Admin({ user, onLogout }) {
   };
 
   const loadPatients = async () => {
-    const d = await api("users?role=eq.patient&order=name.asc");
-    setPatients(d || []);
+    const d = await api("users?order=name.asc");
+    setPatients((d || []).filter(u => u.role === "patient"));
   };
 
   useEffect(() => {
@@ -411,7 +411,7 @@ function Admin({ user, onLogout }) {
     if (!newPatient.name.trim() || !newPatient.password.trim()) return;
     setSaving(true);
     try {
-      await api("users", {
+      const saved = await api("users", {
         method: "POST",
         body: JSON.stringify({
           name: newPatient.name.trim(),
@@ -420,9 +420,18 @@ function Admin({ user, onLogout }) {
           role: "patient",
         }),
       });
-      // 500ms 대기 후 목록 다시 불러오기
-      await new Promise(r => setTimeout(r, 500));
-      await loadPatients();
+      // 응답에서 바로 추가하고, 동시에 목록도 새로고침
+      const added = Array.isArray(saved) ? saved[0] : saved;
+      if (added && added.id) {
+        setPatients(prev => {
+          const next = [...prev, added];
+          next.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko"));
+          return next;
+        });
+      } else {
+        await new Promise(r => setTimeout(r, 500));
+        await loadPatients();
+      }
       setNewPatient({ name: "", password: "", room: "" });
       setShowAddPatient(false);
       flash("환자가 추가되었습니다 ✓");
