@@ -55,9 +55,9 @@ return (
 </div>
 <div style={{ background:"#fff", borderRadius:18, padding:"24px 20px", width:"100%", maxWidth:340, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
 <label style={{ fontSize:12, fontWeight:600, color:"#7A8FA0", display:"block", marginBottom:5 }}>이름</label>
-<input value={name} onChange={e=>setName(e.target.value)} placeholder="이름" onKeyDown={e=>e.key==="Enter"&&go()} style={IS} />
+<input value={name} onChange={e=>setName(e.target.value)} placeholder="이름" onKeyDown={e=>e.key==="Enter"&&go()} style={INP} />
 <label style={{ fontSize:12, fontWeight:600, color:"#7A8FA0", display:"block", marginBottom:5 }}>비밀번호 (병록번호)</label>
-<input value={pw} onChange={e=>setPw(e.target.value)} type="password" placeholder="병록번호" onKeyDown={e=>e.key==="Enter"&&go()} style={IS} />
+<input value={pw} onChange={e=>setPw(e.target.value)} type="password" placeholder="병록번호" onKeyDown={e=>e.key==="Enter"&&go()} style={INP} />
 {err && <p style={{ color:"#E05C5C", fontSize:13, textAlign:"center", margin:"0 0 10px" }}>{err}</p>}
 <button onClick={go} style={{ width:"100%", padding:13, borderRadius:11, border:"none", background:"linear-gradient(135deg,#2E7D9F,#1A5C7A)", color:"#fff", fontSize:15, fontWeight:700, cursor:"pointer" }}>{load?"로그인 중...":"로그인"}</button>
 </div>
