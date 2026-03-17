@@ -230,7 +230,6 @@ const be={background:"#E8F4F8",color:"#2E7D9F",border:"none",borderRadius:7,padd
 )}
 </div>
 );
-}
 
 export default function App() {
 const [user, setUser] = useState(null);
