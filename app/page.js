@@ -130,12 +130,59 @@ function Patient({ user, onLogout }) {
   const getSchedulesForTime = (time) =>
     list.filter(s => s.start_time <= time && s.end_time > time);
 
-  // 오늘 요일에 해당하는 치료만 추출 (중복 제거 - 시작시간 기준)
   const todayItems = list.filter(s => isActiveToday(s.week_days));
   const otherItems = list.filter(s => !isActiveToday(s.week_days));
 
+  // ── 10분 전 팝업 알림 ──
+  const [alarm, setAlarm] = useState(null); // { type, start_time }
+  const [dismissed, setDismissed] = useState([]);
+
+  useEffect(() => {
+    if (todayItems.length === 0) return;
+    const timer = setInterval(() => {
+      const now = new Date();
+      const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+      // 현재 시각 + 10분 계산
+      const plus10 = new Date(now.getTime() + 10 * 60000);
+      const target = plus10.getHours().toString().padStart(2,"0") + ":" + plus10.getMinutes().toString().padStart(2,"0");
+      const hit = todayItems.find(s => s.start_time === target && !dismissed.includes(s.start_time + s.type));
+      if (hit) {
+        setAlarm(hit);
+      }
+    }, 30000); // 30초마다 체크
+    return () => clearInterval(timer);
+  }, [todayItems, dismissed]);
+
+  const dismissAlarm = () => {
+    if (alarm) setDismissed(prev => [...prev, alarm.start_time + alarm.type]);
+    setAlarm(null);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
+      {/* 10분 전 알람 팝업 */}
+      {alarm && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "#fff", borderRadius: 24, padding: "32px 28px", maxWidth: 340, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>⏰</div>
+            <div style={{ fontSize: 16, color: "#7A8FA0", marginBottom: 6, fontWeight: 600 }}>10분 후 치료 시작!</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: "#1A2B3C", marginBottom: 8 }}>
+              {alarm.type}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#2E7D9F", marginBottom: 16 }}>
+              {alarm.start_time} 시작
+            </div>
+            <div style={{ fontSize: 15, color: "#5A7A8A", marginBottom: 24 }}>
+              🏠 {isRFT(alarm.type) ? "운동치료실" : (alarm.room || "-")}
+              {!isRFT(alarm.type) && alarm.therapist && <span style={{ marginLeft: 12 }}>👩‍⚕️ {alarm.therapist}</span>}
+            </div>
+            <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div style={{ background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding: "48px 20px 24px", color: "#fff" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", maxWidth: 600, margin: "0 auto" }}>
