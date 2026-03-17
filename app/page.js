@@ -127,12 +127,11 @@ function Patient({ user, onLogout }) {
       .finally(() => setLoad(false));
   }, [tab, user.name]);
 
-  // 같은 시간대에 여러 항목 가능 (월수금/화목 중복)
   const getSchedulesForTime = (time) =>
     list.filter(s => s.start_time <= time && s.end_time > time);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif", maxWidth: 480, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif", maxWidth: 720, margin: "0 auto" }}>
       <div style={{ background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding: "48px 20px 20px", color: "#fff" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -155,9 +154,9 @@ function Patient({ user, onLogout }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#2E7D9F", color: "#fff" }}>
-                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "25%", textAlign: "center" }}>시간</th>
-                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "42%", textAlign: "center" }}>치료 종류</th>
-                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "33%", textAlign: "center" }}>담당 치료사</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "25%", textAlign: "center" }}>시간</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "42%", textAlign: "center" }}>치료 종류</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "33%", textAlign: "center" }}>담당 치료사</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,9 +165,8 @@ function Patient({ user, onLogout }) {
                   if (items.length === 0) {
                     return (
                       <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                        <td style={{ padding: "13px 10px", fontSize: 16, color: "#5A7A90", fontWeight: 700, textAlign: "center" }}>{time}</td>
-                        <td style={{ padding: "13px 10px", fontSize: 15, color: "#ccc", textAlign: "center" }}>-</td>
-                        <td style={{ padding: "13px 10px", fontSize: 15, color: "#ccc", textAlign: "center" }}>-</td>
+                        <td style={{ padding: "14px 16px", fontSize: 18, color: "#B0C4D0", fontWeight: 600, textAlign: "center" }}>{time}</td>
+                        <td colSpan={2} style={{ padding: "14px 16px" }}></td>
                       </tr>
                     );
                   }
@@ -177,18 +175,18 @@ function Patient({ user, onLogout }) {
                     const active = isActiveToday(s.week_days);
                     const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
                     return (
-                      <tr key={`${time}-${si}`} style={{ borderBottom: "1px solid #F0F4F8", background: active ? st.bg : "#F8F8F8", opacity: active ? 1 : 0.45 }}>
-                        <td style={{ padding: "13px 10px", fontSize: 16, color: "#5A7A90", fontWeight: 700, textAlign: "center" }}>
+                      <tr key={`${time}-${si}`} style={{ borderBottom: "1px solid #EEF4F8", background: active ? st.bg : "#F5F5F5", opacity: active ? 1 : 0.3 }}>
+                        <td style={{ padding: "18px 16px", fontSize: 20, color: active ? "#2E5F7A" : "#aaa", fontWeight: 800, textAlign: "center", whiteSpace: "nowrap" }}>
                           {si === 0 ? time : ""}
                         </td>
-                        <td style={{ padding: "13px 10px", fontSize: 16, fontWeight: 700, color: active ? st.c : "#aaa", textAlign: "center" }}>
-                          {isRFT(s.type) && <span style={{ fontSize: 12, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 5 }}>RFT</span>}
+                        <td style={{ padding: "18px 16px", fontSize: 20, fontWeight: 800, color: active ? st.c : "#bbb", textAlign: "center" }}>
+                          {isRFT(s.type) && <span style={{ fontSize: 13, background: "#C2185B", color: "#fff", borderRadius: 5, padding: "3px 7px", marginRight: 6, verticalAlign: "middle" }}>RFT</span>}
                           {s.type}
                           {s.week_days && (
-                            <span style={{ marginLeft: 5, fontSize: 12, background: wdColor, color: "#fff", borderRadius: 4, padding: "2px 7px" }}>{s.week_days}</span>
+                            <span style={{ marginLeft: 6, fontSize: 13, background: wdColor, color: "#fff", borderRadius: 5, padding: "3px 8px", verticalAlign: "middle" }}>{s.week_days}</span>
                           )}
                         </td>
-                        <td style={{ padding: "13px 10px", fontSize: 15, color: active ? "#1A2B3C" : "#aaa", textAlign: "center" }}>
+                        <td style={{ padding: "18px 16px", fontSize: 19, fontWeight: 700, color: active ? "#1A3A4C" : "#bbb", textAlign: "center" }}>
                           {isRFT(s.type) ? "🏋️ 운동치료실" : (s.therapist || "-")}
                         </td>
                       </tr>
