@@ -356,12 +356,18 @@ function Admin({ user, onLogout }) {
     if (!newPatient.name || !newPatient.password) return;
     setSaving(true);
     try {
-      await api("users", {
+      const result = await api("users", {
         method: "POST",
         body: JSON.stringify({ name: newPatient.name, password: newPatient.password, room: newPatient.room, role: "patient" }),
       });
-      const d = await api("users?role=eq.patient&order=name.asc");
-      setPatients(d || []);
+      const added = Array.isArray(result) ? result[0] : result;
+      if (added) {
+        setPatients(prev => [...prev, added].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+      } else {
+        await new Promise(r => setTimeout(r, 300));
+        const d = await api("users?role=eq.patient&order=name.asc");
+        setPatients(d || []);
+      }
       setNewPatient({ name: "", password: "", room: "" });
       setShowAddPatient(false);
       flash("환자가 추가되었습니다 ✓");
