@@ -154,9 +154,9 @@ function Patient({ user, onLogout }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#2E7D9F", color: "#fff" }}>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "25%", textAlign: "center" }}>시간</th>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "42%", textAlign: "center" }}>치료 종류</th>
-                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "33%", textAlign: "center" }}>담당 치료사</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "20%", textAlign: "center" }}>시간</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "55%", textAlign: "center" }}>치료 종류</th>
+                  <th style={{ padding: "15px 16px", fontSize: 17, fontWeight: 800, width: "25%", textAlign: "center" }}>담당 치료사</th>
                 </tr>
               </thead>
               <tbody>
