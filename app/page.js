@@ -53,7 +53,7 @@ function isActiveToday(week_days) {
 
 const TIMES = [
   "08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00",
-  "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00",
+  "13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00",
 ];
 function nextTime(t) {
   const idx = TIMES.indexOf(t);
@@ -155,9 +155,9 @@ function Patient({ user, onLogout }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#2E7D9F", color: "#fff" }}>
-                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "25%", textAlign: "center" }}>시간</th>
-                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "42%", textAlign: "center" }}>치료 종류</th>
-                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "33%", textAlign: "center" }}>담당 치료사</th>
+                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "25%", textAlign: "center" }}>시간</th>
+                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "42%", textAlign: "center" }}>치료 종류</th>
+                  <th style={{ padding: "13px 10px", fontSize: 15, fontWeight: 700, width: "33%", textAlign: "center" }}>담당 치료사</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,9 +166,9 @@ function Patient({ user, onLogout }) {
                   if (items.length === 0) {
                     return (
                       <tr key={time} style={{ borderBottom: "1px solid #F0F4F8", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>{time}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#ccc", textAlign: "center" }}>-</td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: "#ccc", textAlign: "center" }}>-</td>
+                        <td style={{ padding: "13px 10px", fontSize: 16, color: "#5A7A90", fontWeight: 700, textAlign: "center" }}>{time}</td>
+                        <td style={{ padding: "13px 10px", fontSize: 15, color: "#ccc", textAlign: "center" }}>-</td>
+                        <td style={{ padding: "13px 10px", fontSize: 15, color: "#ccc", textAlign: "center" }}>-</td>
                       </tr>
                     );
                   }
@@ -178,18 +178,18 @@ function Patient({ user, onLogout }) {
                     const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
                     return (
                       <tr key={`${time}-${si}`} style={{ borderBottom: "1px solid #F0F4F8", background: active ? st.bg : "#F8F8F8", opacity: active ? 1 : 0.45 }}>
-                        <td style={{ padding: "10px 8px", fontSize: 12, color: "#7A8FA0", fontWeight: 600, textAlign: "center" }}>
+                        <td style={{ padding: "13px 10px", fontSize: 16, color: "#5A7A90", fontWeight: 700, textAlign: "center" }}>
                           {si === 0 ? time : ""}
                         </td>
-                        <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, color: active ? st.c : "#aaa", textAlign: "center" }}>
-                          {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 4 }}>RFT</span>}
+                        <td style={{ padding: "13px 10px", fontSize: 16, fontWeight: 700, color: active ? st.c : "#aaa", textAlign: "center" }}>
+                          {isRFT(s.type) && <span style={{ fontSize: 12, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 5 }}>RFT</span>}
                           {s.type}
                           {s.week_days && (
-                            <span style={{ marginLeft: 4, fontSize: 9, background: wdColor, color: "#fff", borderRadius: 3, padding: "1px 5px" }}>{s.week_days}</span>
+                            <span style={{ marginLeft: 5, fontSize: 12, background: wdColor, color: "#fff", borderRadius: 4, padding: "2px 7px" }}>{s.week_days}</span>
                           )}
                         </td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: active ? "#1A2B3C" : "#aaa", textAlign: "center" }}>
-                          {isRFT(s.type) ? "운동치료실" : (s.therapist || "-")}
+                        <td style={{ padding: "13px 10px", fontSize: 15, color: active ? "#1A2B3C" : "#aaa", textAlign: "center" }}>
+                          {isRFT(s.type) ? "🏋️ 운동치료실" : (s.therapist || "-")}
                         </td>
                       </tr>
                     );
