@@ -218,23 +218,23 @@ function Patient({ user, onLogout }) {
                   const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
                   return (
                     <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
-                      <div style={{ padding: "16px 18px" }}>
+                      <div style={{ padding: "18px 20px" }}>
+                        {/* 시간 - 맨 위 */}
+                        <div style={{ fontSize: 32, fontWeight: 900, color: "#1A2B3C", marginBottom: 10 }}>
+                          {s.start_time} ~ {s.end_time}
+                        </div>
                         {/* 치료 종류 뱃지 */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "4px 12px" }}>
-                            {isRFT(s.type) && <span style={{ fontSize: 12, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 6 }}>RFT</span>}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 17, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "5px 14px" }}>
+                            {isRFT(s.type) && <span style={{ fontSize: 13, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 6 }}>RFT</span>}
                             {s.type}
                           </span>
                           {s.week_days && (
-                            <span style={{ fontSize: 13, background: wdColor, color: "#fff", borderRadius: 6, padding: "3px 10px", fontWeight: 700 }}>{s.week_days}</span>
+                            <span style={{ fontSize: 15, background: wdColor, color: "#fff", borderRadius: 6, padding: "4px 12px", fontWeight: 700 }}>{s.week_days}</span>
                           )}
                         </div>
-                        {/* 시간 */}
-                        <div style={{ fontSize: 28, fontWeight: 900, color: "#1A2B3C", marginBottom: 6 }}>
-                          {s.start_time} ~ {s.end_time}
-                        </div>
                         {/* 장소/치료사 */}
-                        <div style={{ fontSize: 16, color: "#5A7A8A", display: "flex", gap: 12 }}>
+                        <div style={{ fontSize: 18, color: "#5A7A8A", display: "flex", gap: 12 }}>
                           <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
                           <span>👩‍⚕️ {isRFT(s.type) ? "" : (s.therapist || "-")}</span>
                         </div>
@@ -256,20 +256,21 @@ function Patient({ user, onLogout }) {
                   const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
                   return (
                     <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderLeft: "5px solid #ddd", opacity: 0.45 }}>
-                      <div style={{ padding: "14px 18px" }}>
+                      <div style={{ padding: "16px 20px" }}>
+                        {/* 시간 - 맨 위 */}
+                        <div style={{ fontSize: 26, fontWeight: 800, color: "#888", marginBottom: 8 }}>
+                          {s.start_time} ~ {s.end_time}
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "3px 10px" }}>
-                            {isRFT(s.type) && <span style={{ fontSize: 11, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 5px", marginRight: 5 }}>RFT</span>}
+                          <span style={{ fontSize: 15, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "4px 12px" }}>
+                            {isRFT(s.type) && <span style={{ fontSize: 12, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 5px", marginRight: 5 }}>RFT</span>}
                             {s.type}
                           </span>
                           {s.week_days && (
-                            <span style={{ fontSize: 12, background: wdColor, color: "#fff", borderRadius: 6, padding: "3px 9px", fontWeight: 700 }}>{s.week_days}</span>
+                            <span style={{ fontSize: 13, background: wdColor, color: "#fff", borderRadius: 6, padding: "3px 10px", fontWeight: 700 }}>{s.week_days}</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: "#888", marginBottom: 4 }}>
-                          {s.start_time} ~ {s.end_time}
-                        </div>
-                        <div style={{ fontSize: 14, color: "#aaa" }}>
+                        <div style={{ fontSize: 16, color: "#aaa" }}>
                           <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
                           {!isRFT(s.type) && <span style={{ marginLeft: 12 }}>👩‍⚕️ {s.therapist || "-"}</span>}
                         </div>
