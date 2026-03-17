@@ -5,38 +5,46 @@ const SU = "https://assautgcinohojjgufjn.supabase.co";
 const SK = "sb_publishable_zew7hL6PtkxDqrbN5ocUZg_cHBJ4fcw";
 
 async function api(path, opt = {}) {
-  const r = await fetch(`${SU}/rest/v1/${path}`, {
-    headers: {
-      apikey: SK,
-      Authorization: `Bearer ${SK}`,
-      "Content-Type": "application/json",
-      ...(opt.method === "POST" ? { Prefer: "return=representation" } : {}),
-      ...opt.headers,
-    },
-    ...opt,
-  });
-  const t = await r.text();
-  return t ? JSON.parse(t) : null;
+  const headers = {
+    apikey: SK,
+    Authorization: `Bearer ${SK}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation",
+    ...opt.headers,
+  };
+  const r = await fetch(`${SU}/rest/v1/${path}`, { ...opt, headers });
+  const text = await r.text();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 const TC = {
-  물리치료: { bg: "#E8F4F8", c: "#2E7D9F" },
-  작업치료: { bg: "#EAF6EE", c: "#2E7D52" },
-  연하치료: { bg: "#FFF3E0", c: "#E07A00" },
-  인지치료: { bg: "#F3E8FF", c: "#7B2EAF" },
-  운동치료: { bg: "#E0F7FA", c: "#00838F" },
-  기타: { bg: "#F5F5F5", c: "#555" },
-  RFT: { bg: "#FFF0F5", c: "#C2185B" },
+  물리치료:   { bg: "#E8F4F8", c: "#2E7D9F" },
+  작업치료:   { bg: "#EAF6EE", c: "#2E7D52" },
+  연하치료:   { bg: "#FFF3E0", c: "#E07A00" },
+  인지치료:   { bg: "#F3E8FF", c: "#7B2EAF" },
+  운동치료:   { bg: "#E0F7FA", c: "#00838F" },
+  기타:       { bg: "#F5F5F5", c: "#555555" },
 };
+
 const TYPES = ["물리치료", "작업치료", "연하치료", "인지치료", "운동치료", "기타"];
+
 const RFT_ITEMS = [
   "코끼리자전거", "자동상하지자전거", "전기(FES)", "서기(Tilt)",
   "서기(ST)", "서기(큐보드)", "트래드밀", "스텝퍼",
   "발자전거", "계단", "평행봉",
 ];
-const ts = (t) => TC[t] || TC["RFT_ITEM"] || { bg: "#FFF0F5", c: "#C2185B" };
-const isRFT = (t) => RFT_ITEMS.includes(t);
-const getStyle = (t) => isRFT(t) ? TC["RFT"] : (TC[t] || { bg: "#eee", c: "#444" });
+
+const RFT_STYLE = { bg: "#FFF0F5", c: "#C2185B" };
+
+function getStyle(type) {
+  if (RFT_ITEMS.includes(type)) return RFT_STYLE;
+  return TC[type] || { bg: "#eee", c: "#444" };
+}
+
+function isRFT(type) {
+  return RFT_ITEMS.includes(type);
+}
 
 const TIMES = [
   "08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00",
@@ -45,13 +53,19 @@ const TIMES = [
 
 function nextTime(t) {
   const idx = TIMES.indexOf(t);
-  return TIMES[idx + 1] || t;
+  return idx >= 0 && idx < TIMES.length - 1 ? TIMES[idx + 1] : t;
 }
 
-const inp = {
-  width: "100%", padding: "10px 12px", borderRadius: 8,
-  border: "1.5px solid #DDE6EE", fontSize: 13, outline: "none",
-  boxSizing: "border-box", marginBottom: 8,
+const baseInp = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1.5px solid #DDE6EE",
+  fontSize: 13,
+  outline: "none",
+  boxSizing: "border-box",
+  marginBottom: 8,
+  fontFamily: "inherit",
 };
 
 // ─────────────────────────────────────
@@ -64,14 +78,18 @@ function Login({ onLogin }) {
   const [load, setLoad] = useState(false);
 
   const go = async () => {
-    if (!name || !pw) { setErr("이름과 비밀번호를 입력해주세요."); return; }
+    if (!name.trim() || !pw.trim()) { setErr("이름과 비밀번호를 입력해주세요."); return; }
     setLoad(true); setErr("");
     try {
-      const d = await api(`users?name=eq.${encodeURIComponent(name)}&password=eq.${encodeURIComponent(pw)}&select=*`);
-      if (!d || !d.length) { setErr("이름 또는 비밀번호가 올바르지 않습니다."); return; }
+      const d = await api(`users?name=eq.${encodeURIComponent(name.trim())}&password=eq.${encodeURIComponent(pw.trim())}&select=*`);
+      if (!d || d.length === 0) { setErr("이름 또는 비밀번호가 올바르지 않습니다."); return; }
       onLogin(d[0]);
-    } catch { setErr("오류가 발생했습니다."); }
-    finally { setLoad(false); }
+    } catch (e) {
+      console.error(e);
+      setErr("오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setLoad(false);
+    }
   };
 
   return (
@@ -85,11 +103,11 @@ function Login({ onLogin }) {
       </div>
       <div style={{ background: "#fff", borderRadius: 18, padding: "24px 20px", width: "100%", maxWidth: 340, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: "#7A8FA0", display: "block", marginBottom: 5 }}>이름</label>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="이름" onKeyDown={e => e.key === "Enter" && go()} style={inp} />
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="이름" onKeyDown={e => e.key === "Enter" && go()} style={baseInp} />
         <label style={{ fontSize: 12, fontWeight: 600, color: "#7A8FA0", display: "block", marginBottom: 5 }}>비밀번호 (병록번호)</label>
-        <input value={pw} onChange={e => setPw(e.target.value)} type="password" placeholder="병록번호" onKeyDown={e => e.key === "Enter" && go()} style={inp} />
+        <input value={pw} onChange={e => setPw(e.target.value)} type="password" placeholder="병록번호" onKeyDown={e => e.key === "Enter" && go()} style={baseInp} />
         {err && <p style={{ color: "#E05C5C", fontSize: 13, textAlign: "center", margin: "0 0 10px" }}>{err}</p>}
-        <button onClick={go} style={{ width: "100%", padding: 13, borderRadius: 11, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={go} disabled={load} style={{ width: "100%", padding: 13, borderRadius: 11, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: load ? "not-allowed" : "pointer", opacity: load ? 0.7 : 1 }}>
           {load ? "로그인 중..." : "로그인"}
         </button>
       </div>
@@ -108,15 +126,18 @@ function Patient({ user, onLogout }) {
   useEffect(() => {
     setLoad(true);
     api(`schedules?patient_name=eq.${encodeURIComponent(user.name)}&day_type=eq.${tab}&order=start_time.asc`)
-      .then(d => { setList(d || []); setLoad(false); });
+      .then(d => { setList(d || []); })
+      .catch(() => setList([]))
+      .finally(() => setLoad(false));
   }, [tab, user.name]);
 
-  const getScheduleForTime = (time) => list.find(s => s.start_time <= time && s.end_time > time);
+  const getScheduleForTime = (time) =>
+    list.find(s => s.start_time <= time && s.end_time > time) || null;
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif", maxWidth: 480, margin: "0 auto" }}>
       <div style={{ background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding: "48px 20px 20px", color: "#fff" }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>안녕하세요 👋</p>
             <h2 style={{ margin: "3px 0 0", fontSize: 20, fontWeight: 800 }}>{user.name}님의 시간표</h2>
@@ -130,14 +151,16 @@ function Patient({ user, onLogout }) {
         </div>
       </div>
       <div style={{ padding: 14 }}>
-        {load ? <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p> : (
+        {load ? (
+          <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p>
+        ) : (
           <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#2E7D9F", color: "#fff" }}>
                   <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "25%", textAlign: "center" }}>시간</th>
-                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "40%", textAlign: "center" }}>치료 종류</th>
-                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "35%", textAlign: "center" }}>담당 치료사</th>
+                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "42%", textAlign: "center" }}>치료 종류</th>
+                  <th style={{ padding: "10px 8px", fontSize: 12, fontWeight: 700, width: "33%", textAlign: "center" }}>담당 치료사</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,7 +179,7 @@ function Patient({ user, onLogout }) {
                         ) : "-"}
                       </td>
                       <td style={{ padding: "10px 8px", fontSize: 11, color: s ? "#1A2B3C" : "#ccc", textAlign: "center" }}>
-                        {s ? (isRFT(s.type) ? "운동치료실" : s.therapist) : "-"}
+                        {s ? (isRFT(s.type) ? "운동치료실" : (s.therapist || "-")) : "-"}
                       </td>
                     </tr>
                   );
@@ -177,28 +200,42 @@ function Patient({ user, onLogout }) {
 function ScheduleCell({ time, schedule, onSave, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    type: schedule?.type || "",
-    therapist: schedule?.therapist || "",
-    room: schedule?.room || "",
-    end_time: schedule?.end_time || nextTime(time),
+    type: "",
+    therapist: "",
+    room: "",
+    end_time: nextTime(time),
   });
 
   useEffect(() => {
     setForm({
-      type: schedule?.type || "",
-      therapist: schedule?.therapist || "",
-      room: schedule?.room || "",
-      end_time: schedule?.end_time || nextTime(time),
+      type: schedule ? schedule.type : "",
+      therapist: schedule ? (schedule.therapist || "") : "",
+      room: schedule ? (schedule.room || "") : "",
+      end_time: schedule ? schedule.end_time : nextTime(time),
     });
   }, [schedule, time]);
 
   const st = schedule ? getStyle(schedule.type) : null;
   const rft = isRFT(form.type);
 
+  const handleTypeChange = (val) => {
+    setForm(prev => ({
+      ...prev,
+      type: val,
+      therapist: isRFT(val) ? "" : prev.therapist,
+      room: isRFT(val) ? "운동치료실" : prev.room,
+    }));
+  };
+
   const handleSave = async () => {
     if (!form.type) return;
-    if (!rft && !form.therapist) return;
-    await onSave(time, { ...form, therapist: rft ? "" : form.therapist, room: rft ? "운동치료실" : form.room }, schedule);
+    if (!rft && !form.therapist.trim()) return;
+    const saveData = {
+      ...form,
+      therapist: rft ? "" : form.therapist,
+      room: rft ? "운동치료실" : form.room,
+    };
+    await onSave(time, saveData, schedule);
     setEditing(false);
   };
 
@@ -208,22 +245,13 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
     setEditing(false);
   };
 
-  // RFT 선택 시 room 자동 세팅
-  const handleTypeChange = (val) => {
-    setForm(f => ({
-      ...f,
-      type: val,
-      room: isRFT(val) ? "운동치료실" : f.room,
-      therapist: isRFT(val) ? "" : f.therapist,
-    }));
-  };
+  const cellInp = { width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
   if (editing) {
     return (
       <td style={{ padding: 6, verticalAlign: "top", background: "#FFFDE7", borderBottom: "1px solid #F0F4F8" }}>
-        <select value={form.type} onChange={e => handleTypeChange(e.target.value)}
-          style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none" }}>
-          <option value="">치료 종류</option>
+        <select value={form.type} onChange={e => handleTypeChange(e.target.value)} style={{ ...cellInp, marginBottom: 4 }}>
+          <option value="">치료 종류 선택</option>
           <optgroup label="── 일반 치료 ──">
             {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </optgroup>
@@ -231,23 +259,22 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
             {RFT_ITEMS.map(t => <option key={t} value={t}>{t}</option>)}
           </optgroup>
         </select>
-        {!rft && (
-          <input value={form.therapist} onChange={e => setForm({ ...form, therapist: e.target.value })}
-            placeholder="치료사" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
-        )}
-        {rft && (
+
+        {rft ? (
           <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#C2185B", background: "#FFF0F5", borderRadius: 6, border: "1.5px solid #F8BBD0" }}>
             🏋️ 운동치료실 · 치료사 없음
           </div>
+        ) : (
+          <>
+            <input value={form.therapist} onChange={e => setForm(p => ({ ...p, therapist: e.target.value }))} placeholder="치료사" style={cellInp} />
+            <input value={form.room} onChange={e => setForm(p => ({ ...p, room: e.target.value }))} placeholder="치료실" style={cellInp} />
+          </>
         )}
-        {!rft && (
-          <input value={form.room} onChange={e => setForm({ ...form, room: e.target.value })}
-            placeholder="치료실" style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 4, outline: "none", boxSizing: "border-box" }} />
-        )}
-        <select value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}
-          style={{ width: "100%", padding: "5px 6px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 6, outline: "none" }}>
+
+        <select value={form.end_time} onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))} style={{ ...cellInp, marginBottom: 6 }}>
           {TIMES.filter(t => t > time).map(t => <option key={t} value={t}>{t}까지</option>)}
         </select>
+
         <div style={{ display: "flex", gap: 4 }}>
           <button onClick={handleSave} style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#2E7D9F", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>저장</button>
           {schedule && <button onClick={handleDelete} style={{ padding: "5px 8px", borderRadius: 6, border: "none", background: "#E05C5C", color: "#fff", fontSize: 11, cursor: "pointer" }}>삭제</button>}
@@ -258,23 +285,28 @@ function ScheduleCell({ time, schedule, onSave, onDelete }) {
   }
 
   return (
-    <td onClick={() => setEditing(true)}
-      style={{ padding: "8px 6px", cursor: "pointer", background: schedule ? st.bg : "transparent", borderBottom: "1px solid #F0F4F8", textAlign: "center", transition: "opacity .15s" }}
+    <td
+      onClick={() => setEditing(true)}
+      style={{ padding: "8px 6px", cursor: "pointer", background: schedule ? st.bg : "transparent", borderBottom: "1px solid #F0F4F8", textAlign: "center" }}
       onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
-      onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+      onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+    >
       {schedule ? (
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: st.c }}>
-            {isRFT(schedule.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 3 }}>RFT</span>}
+            {isRFT(schedule.type) && (
+              <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 4px", marginRight: 3 }}>RFT</span>
+            )}
             {schedule.type}
           </div>
-          {schedule.therapist
-            ? <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{schedule.therapist}</div>
-            : isRFT(schedule.type)
-              ? <div style={{ fontSize: 10, color: "#C2185B", marginTop: 2 }}>운동치료실</div>
-              : null
-          }
-          {schedule.room && !isRFT(schedule.type) && <div style={{ fontSize: 10, color: "#999" }}>{schedule.room}</div>}
+          {isRFT(schedule.type) ? (
+            <div style={{ fontSize: 10, color: "#C2185B", marginTop: 2 }}>운동치료실</div>
+          ) : (
+            <>
+              {schedule.therapist && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{schedule.therapist}</div>}
+              {schedule.room && <div style={{ fontSize: 10, color: "#999" }}>{schedule.room}</div>}
+            </>
+          )}
         </div>
       ) : (
         <span style={{ color: "#DDE6EE", fontSize: 18 }}>+</span>
@@ -297,20 +329,37 @@ function Admin({ user, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const flash = (m) => {
+    setMsg(m);
+    setTimeout(() => setMsg(""), 2500);
+  };
+
+  const loadPatients = async () => {
+    const d = await api("users?role=eq.patient&order=name.asc");
+    setPatients(d || []);
+  };
+
   useEffect(() => {
-    api("users?role=eq.patient&order=name.asc").then(d => setPatients(d || []));
+    loadPatients().catch(console.error);
   }, []);
 
   useEffect(() => {
     if (!selectedPatient) return;
     setLoad(true);
     api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`)
-      .then(d => { setSchedules(d || []); setLoad(false); });
+      .then(d => setSchedules(d || []))
+      .catch(() => setSchedules([]))
+      .finally(() => setLoad(false));
   }, [selectedPatient, tab]);
 
-  const getScheduleForTime = (time) => schedules.find(s => s.start_time <= time && s.end_time > time);
+  const getScheduleForTime = (time) =>
+    schedules.find(s => s.start_time <= time && s.end_time > time) || null;
 
-  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+  const reloadSchedules = async () => {
+    if (!selectedPatient) return;
+    const d = await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`);
+    setSchedules(d || []);
+  };
 
   const handleSave = async (time, form, existing) => {
     setSaving(true);
@@ -334,60 +383,75 @@ function Admin({ user, onLogout }) {
           }),
         });
       }
-      const d = await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`);
-      setSchedules(d || []);
+      await reloadSchedules();
       flash("저장되었습니다 ✓");
-    } catch { flash("저장 실패"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+      flash("저장 실패");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
     setSaving(true);
     try {
       await api(`schedules?id=eq.${id}`, { method: "DELETE" });
-      const d = await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`);
-      setSchedules(d || []);
+      await reloadSchedules();
       flash("삭제되었습니다");
-    } catch { flash("삭제 실패"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+      flash("삭제 실패");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAddPatient = async () => {
-    if (!newPatient.name || !newPatient.password) return;
+    if (!newPatient.name.trim() || !newPatient.password.trim()) return;
     setSaving(true);
     try {
-      const result = await api("users", {
+      await api("users", {
         method: "POST",
-        body: JSON.stringify({ name: newPatient.name, password: newPatient.password, room: newPatient.room, role: "patient" }),
+        body: JSON.stringify({
+          name: newPatient.name.trim(),
+          password: newPatient.password.trim(),
+          room: newPatient.room.trim(),
+          role: "patient",
+        }),
       });
-      const added = Array.isArray(result) ? result[0] : result;
-      if (added) {
-        setPatients(prev => [...prev, added].sort((a, b) => a.name.localeCompare(b.name, "ko")));
-      } else {
-        await new Promise(r => setTimeout(r, 300));
-        const d = await api("users?role=eq.patient&order=name.asc");
-        setPatients(d || []);
-      }
+      // 500ms 대기 후 목록 다시 불러오기
+      await new Promise(r => setTimeout(r, 500));
+      await loadPatients();
       setNewPatient({ name: "", password: "", room: "" });
       setShowAddPatient(false);
       flash("환자가 추가되었습니다 ✓");
-    } catch { flash("추가 실패"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+      flash("추가 실패 - 다시 시도해주세요");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeletePatient = async (p) => {
-    if (!confirm(`${p.name} 환자를 삭제할까요? 시간표도 모두 삭제됩니다.`)) return;
+    if (!confirm(`${p.name} 환자를 삭제할까요?\n시간표도 모두 삭제됩니다.`)) return;
     setSaving(true);
     try {
       await api(`schedules?patient_name=eq.${encodeURIComponent(p.name)}`, { method: "DELETE" });
       await api(`users?id=eq.${p.id}`, { method: "DELETE" });
-      const d = await api("users?role=eq.patient&order=name.asc");
-      setPatients(d || []);
-      if (selectedPatient?.id === p.id) setSelectedPatient(null);
+      await loadPatients();
+      if (selectedPatient && selectedPatient.id === p.id) setSelectedPatient(null);
       flash("삭제되었습니다");
-    } catch { flash("삭제 실패"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+      flash("삭제 실패");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const smallInp = { width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
@@ -400,46 +464,74 @@ function Admin({ user, onLogout }) {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {msg && <span style={{ background: "#4CAF8A", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{msg}</span>}
-            {saving && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>저장 중...</span>}
+            {saving && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>처리 중...</span>}
             <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>로그아웃</button>
           </div>
         </div>
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px", display: "flex", gap: 14, flexWrap: "wrap" }}>
+
         {/* 환자 목록 */}
         <div style={{ width: 200, flexShrink: 0 }}>
           <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>환자 목록</span>
-              <button onClick={() => setShowAddPatient(!showAddPatient)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, color: "#fff", padding: "2px 8px", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>+</button>
+              <button
+                onClick={() => setShowAddPatient(p => !p)}
+                style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, color: "#fff", width: 26, height: 26, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>+</button>
             </div>
 
             {showAddPatient && (
               <div style={{ padding: 10, background: "#FFFDE7", borderBottom: "1px solid #F0F4F8" }}>
-                <input value={newPatient.name} onChange={e => setNewPatient({ ...newPatient, name: e.target.value })}
-                  placeholder="이름" style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 5, outline: "none", boxSizing: "border-box" }} />
-                <input value={newPatient.password} onChange={e => setNewPatient({ ...newPatient, password: e.target.value })}
-                  placeholder="병록번호(비밀번호)" style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 5, outline: "none", boxSizing: "border-box" }} />
-                <input value={newPatient.room} onChange={e => setNewPatient({ ...newPatient, room: e.target.value })}
-                  placeholder="병실 (선택)" style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 6, outline: "none", boxSizing: "border-box" }} />
+                <input
+                  value={newPatient.name}
+                  onChange={e => setNewPatient(p => ({ ...p, name: e.target.value }))}
+                  placeholder="이름 *"
+                  style={smallInp}
+                />
+                <input
+                  value={newPatient.password}
+                  onChange={e => setNewPatient(p => ({ ...p, password: e.target.value }))}
+                  placeholder="병록번호(비밀번호) *"
+                  style={smallInp}
+                />
+                <input
+                  value={newPatient.room}
+                  onChange={e => setNewPatient(p => ({ ...p, room: e.target.value }))}
+                  placeholder="병실 (선택)"
+                  style={smallInp}
+                />
                 <div style={{ display: "flex", gap: 4 }}>
-                  <button onClick={handleAddPatient} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: "#2E7D9F", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>추가</button>
-                  <button onClick={() => setShowAddPatient(false)} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #DDE6EE", background: "#fff", fontSize: 11, cursor: "pointer" }}>취소</button>
+                  <button
+                    onClick={handleAddPatient}
+                    disabled={saving}
+                    style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: saving ? "#aaa" : "#2E7D9F", color: "#fff", fontSize: 11, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+                    {saving ? "추가 중..." : "추가"}
+                  </button>
+                  <button
+                    onClick={() => { setShowAddPatient(false); setNewPatient({ name: "", password: "", room: "" }); }}
+                    style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #DDE6EE", background: "#fff", fontSize: 11, cursor: "pointer" }}>취소</button>
                 </div>
               </div>
             )}
 
-            {patients.length === 0 && <p style={{ textAlign: "center", color: "#7A8FA0", padding: 20, fontSize: 12 }}>환자 없음</p>}
+            {patients.length === 0 && !showAddPatient && (
+              <p style={{ textAlign: "center", color: "#7A8FA0", padding: 20, fontSize: 12 }}>환자 없음</p>
+            )}
+
             {patients.map(p => (
-              <div key={p.id}
-                style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #F0F4F8", background: selectedPatient?.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                onClick={() => setSelectedPatient(p)}>
+              <div
+                key={p.id}
+                style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #F0F4F8", background: selectedPatient && selectedPatient.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                onClick={() => setSelectedPatient(p)}
+              >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: selectedPatient?.id === p.id ? 700 : 500, color: selectedPatient?.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: selectedPatient && selectedPatient.id === p.id ? 700 : 500, color: selectedPatient && selectedPatient.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
                   {p.room && <div style={{ fontSize: 10, color: "#7A8FA0" }}>{p.room}</div>}
                 </div>
-                <button onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
+                <button
+                  onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
                   style={{ background: "none", border: "none", color: "#ccc", fontSize: 14, cursor: "pointer", padding: "2px 4px" }}>✕</button>
               </div>
             ))}
@@ -463,7 +555,9 @@ function Admin({ user, onLogout }) {
                   ))}
                 </div>
               </div>
-              {load ? <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p> : (
+              {load ? (
+                <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p>
+              ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#F8FAFC" }}>
@@ -497,11 +591,9 @@ function Admin({ user, onLogout }) {
 // ─────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
-
-  const handleLogin = (u) => setUser(u);
-  const handleLogout = () => setUser(null);
-
-  if (!user) return <Login onLogin={handleLogin} />;
-  if (user.role === "admin") return <Admin user={user} onLogout={handleLogout} />;
-  return <Patient user={user} onLogout={handleLogout} />;
+  return user
+    ? user.role === "admin"
+      ? <Admin user={user} onLogout={() => setUser(null)} />
+      : <Patient user={user} onLogout={() => setUser(null)} />
+    : <Login onLogin={setUser} />;
 }
