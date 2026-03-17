@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 
 const SU = "https://assautgcinohojjgufjn.supabase.co";
-const SK = "sb_secret_fs8Ak9duQ6h0joUC4MEHRA_5dzWzOeu";
+const SK = "sb_publishable_zew7hL6PtkxDqrbN5ocUZg_cHBJ4fcw";
 
 async function api(path, opt = {}) {
   const headers = {
