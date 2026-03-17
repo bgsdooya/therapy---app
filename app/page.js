@@ -207,43 +207,59 @@ function Patient({ user, onLogout }) {
           <p style={{ textAlign: "center", color: "#7A8FA0", padding: 40, fontSize: 18 }}>등록된 시간표가 없습니다</p>
         ) : (
           <>
-            {/* 오늘 해당 치료 */}
-            {todayItems.length > 0 && (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#2E7D9F", marginBottom: 10, marginTop: 4, letterSpacing: 0.5 }}>
-                  오늘 치료
-                </div>
-                {todayItems.map((s, i) => {
-                  const st = getStyle(s.type);
-                  const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
-                  return (
-                    <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
-                      <div style={{ padding: "18px 20px" }}>
-                        {/* 시간 - 맨 위 */}
-                        <div style={{ fontSize: 32, fontWeight: 900, color: "#1A2B3C", marginBottom: 10 }}>
-                          {s.start_time} ~ {s.end_time}
-                        </div>
-                        {/* 치료 종류 뱃지 */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "5px 14px" }}>
-                            {isRFT(s.type) && <span style={{ fontSize: 13, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 6 }}>RFT</span>}
-                            {s.type}
-                          </span>
-                          {s.week_days && (
-                            <span style={{ fontSize: 15, background: wdColor, color: "#fff", borderRadius: 6, padding: "4px 12px", fontWeight: 700 }}>{s.week_days}</span>
-                          )}
-                        </div>
-                        {/* 장소/치료사 */}
-                        <div style={{ fontSize: 18, color: "#5A7A8A", display: "flex", gap: 12 }}>
-                          <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
-                          <span>👩‍⚕️ {isRFT(s.type) ? "" : (s.therapist || "-")}</span>
-                        </div>
+            {/* 오늘 해당 치료 - 오전/오후 구분 */}
+            {todayItems.length > 0 && (() => {
+              const amItems = todayItems.filter(s => s.start_time < "12:00");
+              const pmItems = todayItems.filter(s => s.start_time >= "12:00");
+              const renderCard = (s, i) => {
+                const st = getStyle(s.type);
+                const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                return (
+                  <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
+                    <div style={{ padding: "18px 20px" }}>
+                      <div style={{ fontSize: 32, fontWeight: 900, color: "#1A2B3C", marginBottom: 10 }}>
+                        {s.start_time} ~ {s.end_time}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <span style={{ fontSize: 17, fontWeight: 700, background: st.bg, color: st.c, borderRadius: 8, padding: "5px 14px" }}>
+                          {isRFT(s.type) && <span style={{ fontSize: 13, background: "#C2185B", color: "#fff", borderRadius: 4, padding: "2px 6px", marginRight: 6 }}>RFT</span>}
+                          {s.type}
+                        </span>
+                        {s.week_days && (
+                          <span style={{ fontSize: 15, background: wdColor, color: "#fff", borderRadius: 6, padding: "4px 12px", fontWeight: 700 }}>{s.week_days}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 18, color: "#5A7A8A", display: "flex", gap: 12 }}>
+                        <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
+                        <span>👩‍⚕️ {isRFT(s.type) ? "" : (s.therapist || "-")}</span>
                       </div>
                     </div>
-                  );
-                })}
-              </>
-            )}
+                  </div>
+                );
+              };
+              return (
+                <>
+                  {amItems.length > 0 && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, marginTop: 4 }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: "#E07A00", background: "#FFF3E0", borderRadius: 8, padding: "4px 14px" }}>🌅 오전</span>
+                        <div style={{ flex: 1, height: 2, background: "#FFE0B2", borderRadius: 2 }} />
+                      </div>
+                      {amItems.map(renderCard)}
+                    </>
+                  )}
+                  {pmItems.length > 0 && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, marginTop: amItems.length > 0 ? 8 : 4 }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: "#1565C0", background: "#E3F2FD", borderRadius: 8, padding: "4px 14px" }}>🌇 오후</span>
+                        <div style={{ flex: 1, height: 2, background: "#BBDEFB", borderRadius: 2 }} />
+                      </div>
+                      {pmItems.map(renderCard)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             {/* 오늘 아닌 치료 */}
             {otherItems.length > 0 && (
@@ -643,9 +659,39 @@ function Admin({ user, onLogout }) {
 // ─────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  // 앱 시작 시 자동 로그인 체크
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("yc_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id) setUser(parsed);
+      }
+    } catch (e) {}
+    setChecking(false);
+  }, []);
+
+  const handleLogin = (u) => {
+    try { localStorage.setItem("yc_user", JSON.stringify(u)); } catch (e) {}
+    setUser(u);
+  };
+
+  const handleLogout = () => {
+    try { localStorage.removeItem("yc_user"); } catch (e) {}
+    setUser(null);
+  };
+
+  if (checking) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#1A4A6B,#2E7D9F,#4CAF8A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>🏥 불러오는 중...</div>
+    </div>
+  );
+
   return user
     ? user.role === "admin"
-      ? <Admin user={user} onLogout={() => setUser(null)} />
-      : <Patient user={user} onLogout={() => setUser(null)} />
-    : <Login onLogin={setUser} />;
+      ? <Admin user={user} onLogout={handleLogout} />
+      : <Patient user={user} onLogout={handleLogout} />
+    : <Login onLogin={handleLogin} />;
 }
