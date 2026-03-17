@@ -52,13 +52,26 @@ return (
 );
 }
 function Patient({ user, onLogout }) {
+function Patient({ user, onLogout }) {
 const [tab, setTab] = useState("weekday");
 const [list, setList] = useState([]);
 const [load, setLoad] = useState(true);
+
+const TIMES = ["08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00"];
+
 useEffect(() => {
 setLoad(true);
 api(`schedules?patient_name=eq.${encodeURIComponent(user.name)}&day_type=eq.${tab}&order=start_time.asc`).then(d => { setList(d || []); setLoad(false); });
 }, [tab, user.name]);
+
+const getSlot = (start, end) => {
+return list.filter(s => s.start_time === start && s.end_time === end);
+};
+
+const getScheduleForTime = (time) => {
+return list.find(s => s.start_time <= time && s.end_time > time);
+};
+
 return (
 <div style={{ minHeight:"100vh", background:"#F0F4F8", fontFamily:"Apple SD Gothic Neo, sans-serif", maxWidth:480, margin:"0 auto" }}>
 <div style={{ background:"linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding:"48px 20px 20px", color:"#fff" }}>
@@ -73,15 +86,37 @@ return (
 </div>
 </div>
 <div style={{ padding:14 }}>
-{load ? <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>불러오는 중...</p>
-: list.length===0 ? <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>등록된 시간표가 없습니다</p>
-: list.map(s => { const st=ts(s.type); return (
-<div key={s.id} style={{ background:"#fff", borderRadius:12, padding:14, marginBottom:10, borderLeft:`4px solid ${st.c}` }}>
-<span style={{ background:st.bg, color:st.c, fontSize:11, fontWeight:700, padding:"2px 9px", borderRadius:20 }}>{s.type}</span>
-<p style={{ margin:"7px 0 3px", fontSize:15, fontWeight:700, color:"#1A2B3C" }}>{s.start_time} ~ {s.end_time}</p>
-<p style={{ margin:0, fontSize:12, color:"#7A8FA0" }}>🏠 {s.room} · 👩‍⚕️ {s.therapist}</p>
+{load ? <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>불러오는 중...</p> : (
+<div style={{ background:"#fff", borderRadius:14, overflow:"hidden", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+<table style={{ width:"100%", borderCollapse:"collapse" }}>
+<thead>
+<tr style={{ background:"#2E7D9F", color:"#fff" }}>
+<th style={{ padding:"10px 8px", fontSize:12, fontWeight:700, width:"30%" }}>시간</th>
+<th style={{ padding:"10px 8px", fontSize:12, fontWeight:700, width:"40%" }}>치료 종류</th>
+<th style={{ padding:"10px 8px", fontSize:12, fontWeight:700, width:"30%" }}>담당 치료사</th>
+</tr>
+</thead>
+<tbody>
+{TIMES.map((time, i) => {
+const s = getScheduleForTime(time);
+const st = s ? ts(s.type) : null;
+return (
+<tr key={time} style={{ borderBottom:"1px solid #F0F4F8", background: s ? st.bg : i%2===0?"#fff":"#FAFBFC" }}>
+<td style={{ padding:"10px 8px", fontSize:12, color:"#7A8FA0", fontWeight:600, textAlign:"center" }}>{time}</td>
+<td style={{ padding:"10px 8px", fontSize:12, fontWeight:700, color: s ? st.c : "#ccc", textAlign:"center" }}>
+{s ? `${s.type}` : "-"}
+</td>
+<td style={{ padding:"10px 8px", fontSize:11, color: s ? "#1A2B3C" : "#ccc", textAlign:"center" }}>
+{s ? s.therapist : "-"}
+</td>
+</tr>
+);
+})}
+</tbody>
+</table>
+{list.length === 0 && <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>등록된 시간표가 없습니다</p>}
 </div>
-);})}
+)}
 </div>
 </div>
 );
