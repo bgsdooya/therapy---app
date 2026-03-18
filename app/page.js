@@ -232,6 +232,29 @@ function Patient({ user, onLogout }) {
   const todayItems = list.filter(s => isActiveToday(s.week_days));
   const otherItems = list.filter(s => !isActiveToday(s.week_days));
 
+  // ── 관리자 메시지 팝업 ──
+  const [adminMsg, setAdminMsg] = useState(null);
+
+  useEffect(() => {
+    const checkMsg = async () => {
+      try {
+        const msgs = await api(`messages?patient_name=eq.${encodeURIComponent(user.name)}&is_read=eq.false&order=created_at.asc&limit=1`);
+        if (msgs && msgs.length > 0) setAdminMsg(msgs[0]);
+      } catch (e) {}
+    };
+    checkMsg();
+    const timer = setInterval(checkMsg, 30000);
+    return () => clearInterval(timer);
+  }, [user.name]);
+
+  const dismissAdminMsg = async () => {
+    if (!adminMsg) return;
+    try {
+      await api(`messages?id=eq.${adminMsg.id}`, { method: "PATCH", body: JSON.stringify({ is_read: true }) });
+    } catch (e) {}
+    setAdminMsg(null);
+  };
+
   // ── 알람: 입원(15분전) / 외래(전날 18:00) ──
   const isOutpatient = (user.room || "").trim() === "외래";
   const [alarm, setAlarm] = useState(null);
@@ -300,6 +323,25 @@ function Patient({ user, onLogout }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
+      {/* 관리자 메시지 팝업 */}
+      {adminMsg && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.55)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "#fff", borderRadius: 24, padding: "32px 28px", maxWidth: 360, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📢</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#E07A00", background: "#FFF3E0", borderRadius: 8, padding: "6px 0", marginBottom: 16 }}>치료실 안내 메시지</div>
+            <div style={{ fontSize: 16, color: "#1A2B3C", lineHeight: 1.6, marginBottom: 24, textAlign: "left", background: "#F8FAFC", borderRadius: 12, padding: "14px 16px" }}>
+              {adminMsg.content}
+            </div>
+            <div style={{ fontSize: 12, color: "#7A8FA0", marginBottom: 16 }}>
+              {new Date(adminMsg.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </div>
+            <button onClick={dismissAdminMsg} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E07A00,#B85C00)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 알람 팝업 */}
       {alarm && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -754,6 +796,9 @@ function Admin({ user, onLogout }) {
   const [msg, setMsg] = useState("");
   const [editingEval, setEditingEval] = useState(null);
   const [evalText, setEvalText] = useState("");
+  const [showMsg, setShowMsg] = useState(false); // 메시지 보내기 패널
+  const [msgText, setMsgText] = useState("");
+  const [msgTarget, setMsgTarget] = useState(null); // 특정 환자 or null(전체)
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -787,6 +832,21 @@ function Admin({ user, onLogout }) {
       : `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&specific_date=is.null&order=start_time.asc`;
     const d = await api(query);
     setSchedules(d || []);
+  };
+
+  // 평일/토요일 초기화
+  const handleClearTab = async () => {
+    if (!selectedPatient) return;
+    const label = tab === "weekday" ? "평일" : "토요일";
+    if (!confirm(`${selectedPatient.name}님의 ${label} 시간표를 초기화할까요?
+모든 항목이 삭제됩니다.`)) return;
+    setSaving(true);
+    try {
+      await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&specific_date=is.null`, { method: "DELETE" });
+      await reloadSchedules();
+      flash(`${label} 시간표가 초기화되었습니다 ✓`);
+    } catch (e) { console.error(e); flash("초기화 실패"); }
+    finally { setSaving(false); }
   };
 
   // 복사 기능
@@ -933,6 +993,25 @@ function Admin({ user, onLogout }) {
     finally { setSaving(false); }
   };
 
+  // 메시지 전송
+  const handleSendMsg = async () => {
+    if (!msgText.trim()) return;
+    setSaving(true);
+    try {
+      const targets = msgTarget ? [msgTarget] : patients;
+      for (const p of targets) {
+        await api("messages", {
+          method: "POST",
+          body: JSON.stringify({ patient_name: p.name, content: msgText.trim() }),
+        });
+      }
+      setMsgText("");
+      setShowMsg(false);
+      flash(msgTarget ? `${msgTarget.name}님께 메시지 전송 ✓` : `전체 ${patients.length}명에게 메시지 전송 ✓`);
+    } catch (e) { console.error(e); flash("전송 실패"); }
+    finally { setSaving(false); }
+  };
+
   const smallInp = { width: "100%", padding: "6px 8px", borderRadius: 6, border: "1.5px solid #DDE6EE", fontSize: 12, marginBottom: 5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
   return (
@@ -946,10 +1025,44 @@ function Admin({ user, onLogout }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {msg && <span style={{ background: "#4CAF8A", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{msg}</span>}
             {saving && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>처리 중...</span>}
+            <button onClick={() => { setShowMsg(p => !p); setMsgTarget(null); setMsgText(""); }}
+              style={{ background: "rgba(255,200,0,0.25)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>📢 메시지</button>
             <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>로그아웃</button>
           </div>
         </div>
       </div>
+
+      {/* 메시지 보내기 패널 */}
+      {showMsg && (
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 14px 12px" }}>
+          <div style={{ background: "#FFFDE7", borderRadius: 14, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1.5px solid #FFE082" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#E07A00", marginBottom: 10 }}>📢 환자에게 메시지 보내기</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              <button onClick={() => setMsgTarget(null)}
+                style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${!msgTarget ? "#E07A00" : "#DDE6EE"}`, background: !msgTarget ? "#E07A00" : "#fff", color: !msgTarget ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                전체 전송
+              </button>
+              {patients.map(p => (
+                <button key={p.id} onClick={() => setMsgTarget(p)}
+                  style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${msgTarget?.id === p.id ? "#E07A00" : "#DDE6EE"}`, background: msgTarget?.id === p.id ? "#E07A00" : "#fff", color: msgTarget?.id === p.id ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+            <textarea value={msgText} onChange={e => setMsgText(e.target.value)}
+              placeholder="예) 금일 작업치료는 치료사 부재로 치료가 없습니다."
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #FFD54F", fontSize: 13, resize: "vertical", minHeight: 72, boxSizing: "border-box", fontFamily: "inherit", marginBottom: 8, outline: "none" }} />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowMsg(false)}
+                style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #DDE6EE", background: "#fff", fontSize: 12, cursor: "pointer" }}>취소</button>
+              <button onClick={handleSendMsg} disabled={saving || !msgText.trim()}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: saving ? "#aaa" : "#E07A00", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {msgTarget ? `${msgTarget.name}님께 전송` : `전체 ${patients.length}명에게 전송`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px", display: "flex", gap: 14, flexWrap: "wrap" }}>
         {/* 환자 목록 */}
@@ -1030,7 +1143,11 @@ function Admin({ user, onLogout }) {
               <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: tab === "specific" ? 8 : 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name} 시간표 편집</span>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {(tab === "weekday" || tab === "saturday") && (
+                      <button onClick={handleClearTab} disabled={saving}
+                        style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "rgba(255,80,80,0.25)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>🗑 초기화</button>
+                    )}
                     {[["weekday", "평일"], ["saturday", "토요일"], ["specific", "날짜지정"]].map(([k, l]) => (
                       <button key={k} onClick={() => setTab(k)} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.2)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{l}</button>
                     ))}
