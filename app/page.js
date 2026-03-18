@@ -1104,25 +1104,46 @@ function Admin({ user, onLogout }) {
                 </button>
               </div>
               {Array.isArray(msgTarget) && (
-                <div style={{ maxHeight: 140, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 10px", background: "#F8FAFC", borderRadius: 10, border: "1.5px solid #DDE6EE" }}>
-                  {patients.map(p => {
-                    const selected = msgTarget.some(t => t.id === p.id);
-                    return (
-                      <button key={p.id}
-                        onClick={() => setMsgTarget(prev =>
-                          selected ? prev.filter(t => t.id !== p.id) : [...prev, p]
-                        )}
-                        style={{ padding: "4px 12px", borderRadius: 8, border: `1.5px solid ${selected ? "#E07A00" : "#DDE6EE"}`, background: selected ? "#E07A00" : "#fff", color: selected ? "#fff" : "#555", fontSize: 12, fontWeight: selected ? 700 : 400, cursor: "pointer" }}>
-                        {p.name}
-                        {selected && " ✓"}
+                <div>
+                  {/* 드롭다운 선택 */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                    <select
+                      onChange={e => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        const p = patients.find(p => p.id === id);
+                        if (p && !msgTarget.some(t => t.id === id)) {
+                          setMsgTarget(prev => [...prev, p]);
+                        }
+                        e.target.value = "";
+                      }}
+                      style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1.5px solid #DDE6EE", fontSize: 13, color: "#1A2B3C", background: "#fff", outline: "none" }}>
+                      <option value="">환자 선택 (가나다순)</option>
+                      {[...patients].sort((a, b) => a.name.localeCompare(b.name, "ko")).map(p => (
+                        <option key={p.id} value={p.id} disabled={msgTarget.some(t => t.id === p.id)}>
+                          {p.name} {p.room ? `(${p.room})` : ""}
+                          {msgTarget.some(t => t.id === p.id) ? " ✓" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {msgTarget.length > 0 && (
+                      <button onClick={() => setMsgTarget([])}
+                        style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E05C5C", background: "#FFF0F0", color: "#E05C5C", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        전체 해제
                       </button>
-                    );
-                  })}
+                    )}
+                  </div>
+                  {/* 선택된 환자 태그 */}
                   {msgTarget.length > 0 && (
-                    <button onClick={() => setMsgTarget([])}
-                      style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid #E05C5C", background: "#FFF0F0", color: "#E05C5C", fontSize: 11, cursor: "pointer" }}>
-                      전체 해제
-                    </button>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 10px", background: "#F8FAFC", borderRadius: 10, border: "1.5px solid #DDE6EE" }}>
+                      {msgTarget.map(p => (
+                        <span key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 8, background: "#E07A00", color: "#fff", fontSize: 12, fontWeight: 700 }}>
+                          {p.name}
+                          <button onClick={() => setMsgTarget(prev => prev.filter(t => t.id !== p.id))}
+                            style={{ background: "none", border: "none", color: "#fff", fontSize: 13, cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
