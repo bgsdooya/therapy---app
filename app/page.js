@@ -996,9 +996,12 @@ function Admin({ user, onLogout }) {
   // 메시지 전송
   const handleSendMsg = async () => {
     if (!msgText.trim()) return;
+    // 개별선택 모드인데 아무도 안 선택한 경우
+    if (Array.isArray(msgTarget) && msgTarget.length === 0) return;
     setSaving(true);
     try {
-      const targets = msgTarget ? [msgTarget] : patients;
+      // null = 전체, 배열 = 개별선택
+      const targets = msgTarget === null ? patients : msgTarget;
       for (const p of targets) {
         await api("messages", {
           method: "POST",
@@ -1007,7 +1010,12 @@ function Admin({ user, onLogout }) {
       }
       setMsgText("");
       setShowMsg(false);
-      flash(msgTarget ? `${msgTarget.name}님께 메시지 전송 ✓` : `전체 ${patients.length}명에게 메시지 전송 ✓`);
+      const label = msgTarget === null
+        ? `전체 ${patients.length}명에게 메시지 전송 ✓`
+        : msgTarget.length === 1
+          ? `${msgTarget[0].name}님께 메시지 전송 ✓`
+          : `${msgTarget.length}명에게 메시지 전송 ✓`;
+      flash(label);
     } catch (e) { console.error(e); flash("전송 실패"); }
     finally { setSaving(false); }
   };
@@ -1037,27 +1045,57 @@ function Admin({ user, onLogout }) {
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 14px 12px" }}>
           <div style={{ background: "#FFFDE7", borderRadius: 14, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1.5px solid #FFE082" }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: "#E07A00", marginBottom: 10 }}>📢 환자에게 메시지 보내기</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-              <button onClick={() => setMsgTarget(null)}
-                style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${!msgTarget ? "#E07A00" : "#DDE6EE"}`, background: !msgTarget ? "#E07A00" : "#fff", color: !msgTarget ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                전체 전송
-              </button>
-              {patients.map(p => (
-                <button key={p.id} onClick={() => setMsgTarget(p)}
-                  style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${msgTarget?.id === p.id ? "#E07A00" : "#DDE6EE"}`, background: msgTarget?.id === p.id ? "#E07A00" : "#fff", color: msgTarget?.id === p.id ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  {p.name}
+            {/* 수신자 선택 */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#7A8FA0", marginBottom: 6 }}>수신자 선택 (복수 선택 가능)</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <button onClick={() => setMsgTarget(null)}
+                  style={{ padding: "5px 14px", borderRadius: 8, border: `1.5px solid ${msgTarget === null ? "#E07A00" : "#DDE6EE"}`, background: msgTarget === null ? "#E07A00" : "#fff", color: msgTarget === null ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  📢 전체
                 </button>
-              ))}
+                <button onClick={() => setMsgTarget([])}
+                  style={{ padding: "5px 14px", borderRadius: 8, border: `1.5px solid ${Array.isArray(msgTarget) && msgTarget.length === 0 ? "#2E7D9F" : "#DDE6EE"}`, background: Array.isArray(msgTarget) && msgTarget.length === 0 ? "#E8F4F8" : "#fff", color: "#2E7D9F", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  개별 선택
+                </button>
+              </div>
+              {Array.isArray(msgTarget) && (
+                <div style={{ maxHeight: 140, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 10px", background: "#F8FAFC", borderRadius: 10, border: "1.5px solid #DDE6EE" }}>
+                  {patients.map(p => {
+                    const selected = msgTarget.some(t => t.id === p.id);
+                    return (
+                      <button key={p.id}
+                        onClick={() => setMsgTarget(prev =>
+                          selected ? prev.filter(t => t.id !== p.id) : [...prev, p]
+                        )}
+                        style={{ padding: "4px 12px", borderRadius: 8, border: `1.5px solid ${selected ? "#E07A00" : "#DDE6EE"}`, background: selected ? "#E07A00" : "#fff", color: selected ? "#fff" : "#555", fontSize: 12, fontWeight: selected ? 700 : 400, cursor: "pointer" }}>
+                        {p.name}
+                        {selected && " ✓"}
+                      </button>
+                    );
+                  })}
+                  {msgTarget.length > 0 && (
+                    <button onClick={() => setMsgTarget([])}
+                      style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid #E05C5C", background: "#FFF0F0", color: "#E05C5C", fontSize: 11, cursor: "pointer" }}>
+                      전체 해제
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <textarea value={msgText} onChange={e => setMsgText(e.target.value)}
-              placeholder="예) 금일 작업치료는 치료사 부재로 치료가 없습니다."
+              placeholder="메시지를 적어주세요"
               style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #FFD54F", fontSize: 13, resize: "vertical", minHeight: 72, boxSizing: "border-box", fontFamily: "inherit", marginBottom: 8, outline: "none" }} />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={() => setShowMsg(false)}
                 style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #DDE6EE", background: "#fff", fontSize: 12, cursor: "pointer" }}>취소</button>
-              <button onClick={handleSendMsg} disabled={saving || !msgText.trim()}
-                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: saving ? "#aaa" : "#E07A00", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                {msgTarget ? `${msgTarget.name}님께 전송` : `전체 ${patients.length}명에게 전송`}
+              <button onClick={handleSendMsg}
+                disabled={saving || !msgText.trim() || (Array.isArray(msgTarget) && msgTarget.length === 0)}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: (saving || !msgText.trim() || (Array.isArray(msgTarget) && msgTarget.length === 0)) ? "#aaa" : "#E07A00", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {msgTarget === null
+                  ? `📢 전체 ${patients.length}명에게 전송`
+                  : msgTarget.length === 0
+                    ? "수신자를 선택하세요"
+                    : `📢 ${msgTarget.length}명에게 전송`}
               </button>
             </div>
           </div>
