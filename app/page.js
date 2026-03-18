@@ -159,9 +159,8 @@ function Login({ onLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#1A4A6B,#2E7D9F,#4CAF8A)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
       <div style={{ marginBottom: 28, textAlign: "center" }}>
-        <div style={{ background: "#fff", borderRadius: 14, padding: "12px 22px", marginBottom: 12, display: "inline-block", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-          <p style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "#2E7D9F" }}>🏥 양산제일병원</p>
-          <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7A8FA0", letterSpacing: 1 }}>YANGSAN CHEIL HOSPITAL</p>
+        <div style={{ marginBottom: 12, display: "inline-block" }}>
+          <img src="/icon-192.png" alt="양산제일병원 재활치료팀" style={{ width: 140, height: 140, borderRadius: 28, boxShadow: "0 8px 30px rgba(0,0,0,0.25)" }} />
         </div>
         <h1 style={{ color: "#fff", fontSize: 20, fontWeight: 800, margin: 0 }}>치료 시간표</h1>
       </div>
