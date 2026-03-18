@@ -288,6 +288,25 @@ function Patient({ user, onLogout }) {
     setAdminMsg(null);
   };
 
+  // ── 휴무일 체크 ──
+  const [holidayDates, setHolidayDates] = useState([]);
+  useEffect(() => {
+    api("holidays?select=holiday_date")
+      .then(d => setHolidayDates((d || []).map(h => h.holiday_date)))
+      .catch(() => {});
+  }, []);
+
+  const isHoliday = (dateStr) => holidayDates.includes(dateStr);
+  const todayStr = () => {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  };
+  const tomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  };
+
   // ── 알람: 입원(15분전) / 외래(전날 18:00) ──
   const isOutpatient = (user.room || "").trim() === "외래";
   const [alarm, setAlarm] = useState(null);
@@ -302,6 +321,8 @@ function Patient({ user, onLogout }) {
         const m = now.getMinutes();
         // 오후 6시 (18:00) 정각 체크
         if (h === 18 && m === 0) {
+          // 내일이 휴무일이면 알람 차단
+          if (isHoliday(tomorrowStr())) return;
           // 내일 치료가 있는지 확인 (weekday/weekend 기준)
           const tomorrow = new Date(now);
           tomorrow.setDate(tomorrow.getDate() + 1);
@@ -329,6 +350,8 @@ function Patient({ user, onLogout }) {
     // 입원 환자: 오전 첫 치료 15분 전 / 오후 첫 치료 15분 전 알람
     if (todayItems.length === 0) return;
     const timer = setInterval(() => {
+      // 오늘 휴무일이면 알람 차단
+      if (isHoliday(todayStr())) return;
       const now = new Date();
       const plus15 = new Date(now.getTime() + 15 * 60000);
       const target = plus15.getHours().toString().padStart(2,"0") + ":" + plus15.getMinutes().toString().padStart(2,"0");
@@ -850,9 +873,12 @@ function Admin({ user, onLogout }) {
   const [msg, setMsg] = useState("");
   const [editingEval, setEditingEval] = useState(null);
   const [evalText, setEvalText] = useState("");
-  const [showMsg, setShowMsg] = useState(false); // 메시지 보내기 패널
+  const [showMsg, setShowMsg] = useState(false);
   const [msgText, setMsgText] = useState("");
-  const [msgTarget, setMsgTarget] = useState(null); // 특정 환자 or null(전체)
+  const [msgTarget, setMsgTarget] = useState(null);
+  const [showHoliday, setShowHoliday] = useState(false); // 휴무일 관리 패널
+  const [holidays, setHolidays] = useState([]);
+  const [newHoliday, setNewHoliday] = useState({ date: "", memo: "" });
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -861,7 +887,40 @@ function Admin({ user, onLogout }) {
     setPatients((d || []).filter(u => u.role === "patient"));
   };
 
-  useEffect(() => { loadPatients().catch(console.error); }, []);
+  const loadHolidays = async () => {
+    const d = await api("holidays?order=holiday_date.asc");
+    setHolidays(d || []);
+  };
+
+  useEffect(() => {
+    loadPatients().catch(console.error);
+    loadHolidays().catch(console.error);
+  }, []);
+
+  const handleAddHoliday = async () => {
+    if (!newHoliday.date) return;
+    setSaving(true);
+    try {
+      await api("holidays", {
+        method: "POST",
+        body: JSON.stringify({ holiday_date: newHoliday.date, memo: newHoliday.memo.trim() }),
+      });
+      setNewHoliday({ date: "", memo: "" });
+      await loadHolidays();
+      flash("휴무일이 등록됐습니다 ✓");
+    } catch (e) { console.error(e); flash("등록 실패"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    setSaving(true);
+    try {
+      await api(`holidays?id=eq.${id}`, { method: "DELETE" });
+      await loadHolidays();
+      flash("삭제됐습니다");
+    } catch (e) { console.error(e); flash("삭제 실패"); }
+    finally { setSaving(false); }
+  };
 
   useEffect(() => {
     if (!selectedPatient) return;
@@ -1089,6 +1148,8 @@ function Admin({ user, onLogout }) {
             {saving && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>처리 중...</span>}
             <button onClick={() => { setShowMsg(p => !p); setMsgTarget(null); setMsgText(""); }}
               style={{ background: "rgba(255,200,0,0.25)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>📢 메시지</button>
+            <button onClick={() => setShowHoliday(p => !p)}
+              style={{ background: "rgba(255,100,100,0.25)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>🗓 휴무일</button>
             <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>로그아웃</button>
           </div>
         </div>
@@ -1173,6 +1234,38 @@ function Admin({ user, onLogout }) {
                     : `📢 ${msgTarget.length}명에게 전송`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 휴무일 관리 패널 */}
+      {showHoliday && (
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 14px 12px" }}>
+          <div style={{ background: "#FFF0F0", borderRadius: 14, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1.5px solid #FFCDD2" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#C62828", marginBottom: 10 }}>🗓 휴무일 관리 (알람 차단)</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <input type="date" value={newHoliday.date} onChange={e => setNewHoliday(p => ({ ...p, date: e.target.value }))}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #FFCDD2", fontSize: 13, outline: "none" }} />
+              <input value={newHoliday.memo} onChange={e => setNewHoliday(p => ({ ...p, memo: e.target.value }))}
+                placeholder="메모 (예: 설날)" 
+                style={{ flex: 1, minWidth: 100, padding: "6px 10px", borderRadius: 8, border: "1.5px solid #FFCDD2", fontSize: 13, outline: "none" }} />
+              <button onClick={handleAddHoliday} disabled={saving || !newHoliday.date}
+                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#C62828", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>등록</button>
+            </div>
+            {holidays.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>등록된 휴무일이 없습니다</p>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {holidays.map(h => (
+                  <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 8, padding: "5px 10px", border: "1px solid #FFCDD2" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#C62828" }}>{h.holiday_date}</span>
+                    {h.memo && <span style={{ fontSize: 12, color: "#7A8FA0" }}>{h.memo}</span>}
+                    <button onClick={() => handleDeleteHoliday(h.id)}
+                      style={{ background: "none", border: "none", color: "#ccc", fontSize: 13, cursor: "pointer", padding: 0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
