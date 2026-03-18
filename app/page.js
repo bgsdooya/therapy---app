@@ -901,9 +901,12 @@ function Admin({ user, onLogout }) {
   const [showMsg, setShowMsg] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [msgTarget, setMsgTarget] = useState(null);
-  const [showHoliday, setShowHoliday] = useState(false); // 휴무일 관리 패널
+  const [showHoliday, setShowHoliday] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: "", memo: "" });
+  const [showTextInput, setShowTextInput] = useState(false); // 텍스트 시간표 입력
+  const [textInput, setTextInput] = useState("");
+  const [textInputMode, setTextInputMode] = useState("replace"); // replace or add
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -1128,6 +1131,61 @@ function Admin({ user, onLogout }) {
       if (selectedPatient && selectedPatient.id === p.id) setSelectedPatient(null);
       flash("삭제되었습니다");
     } catch (e) { console.error(e); flash("삭제 실패"); }
+    finally { setSaving(false); }
+  };
+
+  // 텍스트 시간표 파싱 및 저장
+  const handleTextImport = async () => {
+    if (!textInput.trim() || !selectedPatient) return;
+    const lines = textInput.trim().split("\n").filter(l => l.trim());
+    const parsed = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // 시간 파싱: 09:00-09:30 또는 09:00~09:30
+      const timeMatch = trimmed.match(/^(\d{1,2}:\d{2})\s*[-~]\s*(\d{1,2}:\d{2})\s+(.+)/);
+      if (!timeMatch) continue;
+      const start = timeMatch[1].padStart(5, "0");
+      const end = timeMatch[2].padStart(5, "0");
+      const rest = timeMatch[3].trim().split(/\s+/);
+      const type = rest[0] || "";
+      const therapist = rest[1] || "";
+      const room = rest[2] || "";
+      if (!type) continue;
+      parsed.push({ start_time: start, end_time: end, type, therapist, room });
+    }
+    if (parsed.length === 0) { flash("파싱 실패 - 형식을 확인해주세요"); return; }
+    setSaving(true);
+    try {
+      // 덮어쓰기 모드면 기존 삭제
+      if (textInputMode === "replace") {
+        const query = tab === "specific"
+          ? `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&specific_date=eq.${specificDate}`
+          : `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&specific_date=is.null`;
+        await api(query, { method: "DELETE" });
+      }
+      // 새 항목 저장
+      for (const p of parsed) {
+        await api("schedules", {
+          method: "POST",
+          body: JSON.stringify({
+            patient_name: selectedPatient.name,
+            day_type: tab === "specific" ? "weekday" : tab,
+            specific_date: tab === "specific" ? specificDate : null,
+            start_time: p.start_time,
+            end_time: p.end_time,
+            type: p.type,
+            therapist: noTherapist(p.type) ? "" : p.therapist,
+            room: isRFT(p.type) ? "운동치료실" : p.room,
+            week_days: "",
+          }),
+        });
+      }
+      await reloadSchedules();
+      setTextInput("");
+      setShowTextInput(false);
+      flash(`${parsed.length}개 항목이 등록됐습니다 ✓`);
+    } catch (e) { console.error(e); flash("저장 실패"); }
     finally { setSaving(false); }
   };
 
@@ -1375,6 +1433,8 @@ function Admin({ user, onLogout }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: tab === "specific" ? 8 : 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name} 시간표 편집</span>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button onClick={() => setShowTextInput(p => !p)}
+                      style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: showTextInput ? "#fff" : "rgba(255,255,255,0.2)", color: showTextInput ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>📝 텍스트 입력</button>
                     {(tab === "weekday" || tab === "saturday") && (
                       <button onClick={handleClearTab} disabled={saving}
                         style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "rgba(255,80,80,0.25)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>🗑 초기화</button>
@@ -1401,6 +1461,37 @@ function Admin({ user, onLogout }) {
                   </div>
                 )}
               </div>
+              {showTextInput && (
+                <div style={{ padding: "12px 16px", background: "#F0F8FF", borderBottom: "2px solid #EEF2F7" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2E7D9F", marginBottom: 6 }}>
+                    📝 텍스트로 시간표 입력
+                  </div>
+                  <div style={{ fontSize: 11, color: "#7A8FA0", marginBottom: 8, background: "#fff", borderRadius: 8, padding: "8px 10px", lineHeight: 1.8 }}>
+                    <b>형식:</b> 시작시간-종료시간 치료명 치료사 치료실<br/>
+                    <b>예시:</b><br/>
+                    09:00-09:30 운동치료 김동규 운동BT-8<br/>
+                    09:30-10:00 전기(FES)<br/>
+                    10:00-10:30 작업치료 최진영 작업실<br/>
+                    14:00-14:30 물리치료
+                  </div>
+                  <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
+                    placeholder={"09:00-09:30 운동치료 김동규 운동BT-8\n09:30-10:00 전기(FES)\n10:00-10:30 작업치료 최진영 작업실"}
+                    style={{ width: "100%", minHeight: 120, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #B3D9EF", fontSize: 12, resize: "vertical", boxSizing: "border-box", fontFamily: "monospace", marginBottom: 8, outline: "none" }} />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <select value={textInputMode} onChange={e => setTextInputMode(e.target.value)}
+                      style={{ padding: "5px 8px", borderRadius: 7, border: "1.5px solid #DDE6EE", fontSize: 12, outline: "none" }}>
+                      <option value="replace">기존 삭제 후 등록</option>
+                      <option value="add">기존에 추가</option>
+                    </select>
+                    <button onClick={handleTextImport} disabled={saving || !textInput.trim()}
+                      style={{ padding: "6px 16px", borderRadius: 7, border: "none", background: saving ? "#aaa" : "#2E7D9F", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      {saving ? "등록 중..." : "시간표 등록"}
+                    </button>
+                    <button onClick={() => { setShowTextInput(false); setTextInput(""); }}
+                      style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #DDE6EE", background: "#fff", fontSize: 12, cursor: "pointer" }}>취소</button>
+                  </div>
+                </div>
+              )}
               {load ? (
                 <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p>
               ) : (
