@@ -2,6 +2,15 @@
 import { useState, useEffect } from "react";
 
 // ─────────────────────────────────────
+// 서비스워커 등록
+// ─────────────────────────────────────
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+// ─────────────────────────────────────
 // PWA 설치 배너
 // ─────────────────────────────────────
 function InstallBanner() {
