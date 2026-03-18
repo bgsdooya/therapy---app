@@ -113,11 +113,23 @@ const RFT_STYLE = { bg: "#FFF0F5", c: "#C2185B" };
 const WEEK_DAYS_OPTIONS = ["", "월수금", "화목"];
 const WEEK_DAYS_LABEL = { "": "매일", "월수금": "월수금", "화목": "화목" };
 const WEEK_DAYS_COLOR = { "": null, "월수금": "#1565C0", "화목": "#6A1B9A" };
+const CUSTOM_DAYS = ["월", "화", "수", "목", "금", "토"];
 
 function getStyle(type) {
   return RFT_ITEMS.includes(type) ? RFT_STYLE : (TC[type] || { bg: "#eee", c: "#444" });
 }
 function isRFT(type) { return RFT_ITEMS.includes(type); }
+function getWdColor(week_days) {
+  if (!week_days) return null;
+  if (WEEK_DAYS_COLOR[week_days]) return WEEK_DAYS_COLOR[week_days];
+  return "#E07A00"; // 직접선택 요일은 주황색
+}
+function getWdBg(week_days) {
+  if (!week_days) return null;
+  if (week_days === "월수금") return "#1565C0";
+  if (week_days === "화목") return "#6A1B9A";
+  return "#E07A00";
+}
 
 // 오늘 요일이 해당 week_days에 포함되는지
 function isActiveToday(week_days) {
@@ -375,7 +387,7 @@ function Patient({ user, onLogout }) {
               const pmItems = todayItems.filter(s => s.start_time >= "12:00");
               const renderCard = (s, i) => {
                 const st = getStyle(s.type);
-                const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                const wdColor = getWdColor(s.week_days || "");
                 return (
                   <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
                     <div style={{ padding: "18px 20px" }}>
@@ -431,7 +443,7 @@ function Patient({ user, onLogout }) {
                 </div>
                 {otherItems.map((s, i) => {
                   const st = getStyle(s.type);
-                  const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+                  const wdColor = getWdColor(s.week_days || "");
                   return (
                     <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderLeft: "5px solid #ddd", opacity: 0.45 }}>
                       <div style={{ padding: "16px 20px" }}>
@@ -553,16 +565,21 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [editTarget, setEditTarget] = useState(null); // null = 새항목
   const [form, setForm] = useState({ type: "", therapist: "", room: "", end_time: nextTime(time), week_days: "" });
+  const [showCustomDays, setShowCustomDays] = useState(false);
 
   const openNew = () => {
     setEditTarget(null);
     setForm({ type: "", therapist: "", room: "", end_time: nextTime(time), week_days: "" });
+    setShowCustomDays(false);
     setEditing(true);
   };
 
   const openEdit = (s) => {
     setEditTarget(s);
     setForm({ type: s.type, therapist: s.therapist || "", room: s.room || "", end_time: s.end_time, week_days: s.week_days || "" });
+    // 저장된 week_days가 매일/월수금/화목이 아니면 직접선택 모드로
+    const isCustom = s.week_days && !["", "월수금", "화목"].includes(s.week_days);
+    setShowCustomDays(isCustom);
     setEditing(true);
   };
 
@@ -608,12 +625,38 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
         {/* 요일 선택 */}
         <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
           {WEEK_DAYS_OPTIONS.map(wd => (
-            <button key={wd} onClick={() => setForm(p => ({ ...p, week_days: wd }))}
-              style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: `1.5px solid ${form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#DDE6EE"}`, background: form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#fff", color: form.week_days === wd ? "#fff" : "#555", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            <button key={wd} onClick={() => { setForm(p => ({ ...p, week_days: wd })); setShowCustomDays(false); }}
+              style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: `1.5px solid ${!showCustomDays && form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#DDE6EE"}`, background: !showCustomDays && form.week_days === wd ? (WEEK_DAYS_COLOR[wd] || "#2E7D9F") : "#fff", color: !showCustomDays && form.week_days === wd ? "#fff" : "#555", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
               {WEEK_DAYS_LABEL[wd]}
             </button>
           ))}
+          <button onClick={() => { setShowCustomDays(p => !p); setForm(p => ({ ...p, week_days: "" })); }}
+            style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: `1.5px solid ${showCustomDays ? "#E07A00" : "#DDE6EE"}`, background: showCustomDays ? "#FFF3E0" : "#fff", color: showCustomDays ? "#E07A00" : "#555", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            직접선택
+          </button>
         </div>
+        {/* 직접선택 체크박스 */}
+        {showCustomDays && (
+          <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap", background: "#FFF3E0", borderRadius: 8, padding: "6px 8px", border: "1.5px solid #FFE0B2" }}>
+            {CUSTOM_DAYS.map(day => {
+              const selected = (form.week_days || "").includes(day);
+              return (
+                <button key={day} onClick={() => {
+                  const curr = form.week_days || "";
+                  const days = CUSTOM_DAYS.filter(d => curr.includes(d));
+                  const next = selected ? days.filter(d => d !== day) : [...days, day];
+                  // 월화수목금토 순서 유지
+                  const ordered = CUSTOM_DAYS.filter(d => next.includes(d)).join("");
+                  setForm(p => ({ ...p, week_days: ordered }));
+                }}
+                  style={{ padding: "3px 8px", borderRadius: 6, border: `1.5px solid ${selected ? "#E07A00" : "#DDE6EE"}`, background: selected ? "#E07A00" : "#fff", color: selected ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  {day}
+                </button>
+              );
+            })}
+            {form.week_days && <span style={{ fontSize: 10, color: "#E07A00", alignSelf: "center", marginLeft: 2 }}>({form.week_days})</span>}
+          </div>
+        )}
 
         {rft ? (
           <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#C2185B", background: "#FFF0F5", borderRadius: 6, border: "1.5px solid #F8BBD0" }}>
@@ -645,7 +688,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {schedules.map((s, i) => {
           const st = getStyle(s.type);
-          const wdColor = WEEK_DAYS_COLOR[s.week_days || ""];
+          const wdColor = getWdColor(s.week_days || "");
           return (
             <div key={i} onClick={() => openEdit(s)}
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 6, background: st.bg, cursor: "pointer", transition: "opacity .15s" }}
