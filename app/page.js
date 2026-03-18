@@ -253,13 +253,14 @@ function Patient({ user, onLogout }) {
         if (msgs && msgs.length > 0) {
           const m = msgs[0];
           setAdminMsg(m);
-          // 브라우저 알림 발송 (앱이 백그라운드일 때)
-          if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+          // 브라우저 알림 발송 (항상)
+          if ("Notification" in window && Notification.permission === "granted") {
             const notif = new Notification("🏥 양산제일병원 재활치료팀", {
               body: m.content,
               icon: "/icon-192.png",
               badge: "/icon-192.png",
-              tag: m.id, // 중복 방지
+              tag: m.id,
+              requireInteraction: true,
             });
             notif.onclick = () => { window.focus(); notif.close(); };
           }
@@ -303,11 +304,11 @@ function Patient({ user, onLogout }) {
             const tomorrowItems = list.filter(s => !dismissed.includes("outpatient_" + s.start_time + s.type));
             if (tomorrowItems.length > 0) {
               setAlarm({ kind: "outpatient", items: tomorrowItems });
-              if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+              if ("Notification" in window && Notification.permission === "granted") {
                 const evalNote3 = user.evaluation ? "\n📋 " + user.evaluation : "";
                 new Notification("📋 내일 치료 일정 안내", {
                   body: tomorrowItems.map(s => s.start_time + " " + s.type).join("\n") + evalNote3,
-                  icon: "/icon-192.png", tag: "outpatient_alarm"
+                  icon: "/icon-192.png", tag: "outpatient_alarm", requireInteraction: true,
                 });
               }
             }
@@ -334,20 +335,20 @@ function Patient({ user, onLogout }) {
 
       if (firstAm && firstAm.start_time === target && !dismissed.includes("am_first")) {
         setAlarm({ kind: "inpatient", item: firstAm, session: "am", items: amItems });
-        if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+        if ("Notification" in window && Notification.permission === "granted") {
           const evalNote = user.evaluation ? "\n📋 " + user.evaluation : "";
           new Notification("🌅 오전 치료 15분 전!", {
             body: amItems.map(s => s.start_time + " " + s.type).join("\n") + evalNote,
-            icon: "/icon-192.png", tag: "am_alarm"
+            icon: "/icon-192.png", tag: "am_alarm", requireInteraction: true,
           });
         }
       } else if (firstPm && firstPm.start_time === target && !dismissed.includes("pm_first")) {
         setAlarm({ kind: "inpatient", item: firstPm, session: "pm", items: pmItems });
-        if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+        if ("Notification" in window && Notification.permission === "granted") {
           const evalNote2 = user.evaluation ? "\n📋 " + user.evaluation : "";
           new Notification("🌇 오후 치료 15분 전!", {
             body: pmItems.map(s => s.start_time + " " + s.type).join("\n") + evalNote2,
-            icon: "/icon-192.png", tag: "pm_alarm"
+            icon: "/icon-192.png", tag: "pm_alarm", requireInteraction: true,
           });
         }
       }
