@@ -518,6 +518,21 @@ function Patient({ user, onLogout }) {
               const renderCard = (s, i) => {
                 const st = getStyle(s.type);
                 const wdColor = getWdColor(s.week_days || "");
+                if (s.is_cancelled) {
+                  return (
+                    <div key={i} style={{ background: "#F5F5F5", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderLeft: "5px solid #E05C5C", opacity: 0.85 }}>
+                      <div style={{ padding: "16px 20px" }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: "#bbb", marginBottom: 8, textDecoration: "line-through" }}>
+                          {s.start_time} ~ {s.end_time}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 15, fontWeight: 700, background: "#eee", color: "#aaa", borderRadius: 8, padding: "4px 12px", textDecoration: "line-through" }}>{s.type}</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: "#E05C5C", background: "#FFF0F0", borderRadius: 8, padding: "4px 12px" }}>❌ 당일 치료 없음</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={i} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", borderLeft: `5px solid ${st.c}` }}>
                     <div style={{ padding: "18px 20px" }}>
@@ -708,8 +723,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
 
   const openEdit = (s) => {
     setEditTarget(s);
-    setForm({ type: s.type, therapist: s.therapist || "", room: s.room || "", end_time: s.end_time, week_days: s.week_days || "" });
-    // 저장된 week_days가 매일/월수금/화목이 아니면 직접선택 모드로
+    setForm({ type: s.type, therapist: s.therapist || "", room: s.room || "", end_time: s.end_time, week_days: s.week_days || "", is_cancelled: s.is_cancelled || false });
     const isCustom = s.week_days && !["", "월수금", "화목"].includes(s.week_days);
     setShowCustomDays(isCustom);
     setEditing(true);
@@ -734,9 +748,16 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
       ...form,
       therapist: noTherapist(form.type) ? "" : form.therapist,
       room: isRFT(form.type) ? "운동치료실" : form.room,
+      is_cancelled: form.is_cancelled || false,
     };
     await onSave(time, saveData, editTarget);
     setEditing(false);
+  };
+
+  // 취소 토글 (편집 없이 바로)
+  const handleToggleCancel = async (s, e) => {
+    e.stopPropagation();
+    await onSave(time, { ...s, is_cancelled: !s.is_cancelled }, s);
   };
 
   const handleDelete = async () => {
@@ -834,19 +855,23 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
           const st = getStyle(s.type);
           const wdColor = getWdColor(s.week_days || "");
           return (
-            <div key={i} onClick={() => openEdit(s)}
-              style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 6, background: st.bg, cursor: "pointer", transition: "opacity .15s" }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: st.c }}>
+            <div key={i}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 6, background: s.is_cancelled ? "#F5F5F5" : st.bg, cursor: "pointer", opacity: s.is_cancelled ? 0.7 : 1 }}>
+              <div style={{ flex: 1 }} onClick={() => openEdit(s)}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: s.is_cancelled ? "#aaa" : st.c, textDecoration: s.is_cancelled ? "line-through" : "none" }}>
                   {isRFT(s.type) && <span style={{ fontSize: 9, background: "#C2185B", color: "#fff", borderRadius: 3, padding: "1px 3px", marginRight: 3 }}>RFT</span>}
                   {s.type}
                   {s.week_days && <span style={{ marginLeft: 4, fontSize: 9, background: wdColor, color: "#fff", borderRadius: 3, padding: "1px 4px" }}>{s.week_days}</span>}
+                  {s.is_cancelled && <span style={{ marginLeft: 4, fontSize: 9, color: "#E05C5C" }}>취소</span>}
                 </div>
-                {!noTherapist(s.type) && s.therapist && <div style={{ fontSize: 10, color: "#666" }}>{s.therapist}</div>}
+                {!noTherapist(s.type) && s.therapist && <div style={{ fontSize: 10, color: s.is_cancelled ? "#ccc" : "#666", textDecoration: s.is_cancelled ? "line-through" : "none" }}>{s.therapist}</div>}
                 {isRFT(s.type) && <div style={{ fontSize: 10, color: "#C2185B" }}>운동치료실</div>}
               </div>
+              <button onClick={(e) => handleToggleCancel(s, e)}
+                title={s.is_cancelled ? "취소 해제" : "당일 치료 없음"}
+                style={{ background: s.is_cancelled ? "#E05C5C" : "#eee", border: "none", borderRadius: 4, color: s.is_cancelled ? "#fff" : "#aaa", fontSize: 10, padding: "2px 5px", cursor: "pointer", flexShrink: 0 }}>
+                {s.is_cancelled ? "✕해제" : "✕"}
+              </button>
             </div>
           );
         })}
@@ -1016,7 +1041,7 @@ function Admin({ user, onLogout }) {
       if (existing) {
         await api(`schedules?id=eq.${existing.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ type: form.type, therapist: form.therapist, room: form.room, end_time: form.end_time, week_days: form.week_days }),
+          body: JSON.stringify({ type: form.type, therapist: form.therapist, room: form.room, end_time: form.end_time, week_days: form.week_days, is_cancelled: form.is_cancelled || false }),
         });
       } else {
         await api("schedules", {
