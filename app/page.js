@@ -460,7 +460,88 @@ function Patient({ user, onLogout }) {
             )}
           </>
         )}
+
+        {/* 치료실 연락처 */}
+        <ContactInfo />
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────
+// 치료실 연락처
+// ─────────────────────────────────────
+const CONTACTS = [
+  {
+    name: "운동치료실",
+    tel: "055.912.2160",
+    color: "#C2185B",
+    bg: "#FFF0F5",
+    hours: [
+      { label: "월 ~ 금", time: "08:30 ~ 17:30", note: "점심시간 12:30 ~ 13:30" },
+      { label: "토", time: "08:30 ~ 12:30", note: "" },
+    ],
+  },
+  {
+    name: "작업치료실",
+    tel: "055.912.2164",
+    color: "#2E7D52",
+    bg: "#EAF6EE",
+    hours: [
+      { label: "월 ~ 금", time: "08:30 ~ 17:30", note: "점심시간 12:30 ~ 13:30" },
+      { label: "토", time: "08:30 ~ 12:30", note: "" },
+    ],
+  },
+  {
+    name: "물리치료실",
+    tel: "055.912.2159",
+    color: "#2E7D9F",
+    bg: "#E8F4F8",
+    hours: [
+      { label: "월 ~ 금", time: "08:30 ~ 17:30", note: "점심시간 당직 운영" },
+      { label: "토", time: "08:30 ~ 12:30", note: "" },
+    ],
+  },
+];
+
+function ContactInfo() {
+  const [open, setOpen] = useState(null);
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#7A8FA0", marginBottom: 10, letterSpacing: 0.5 }}>📞 치료실 연락처</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {CONTACTS.map((c) => (
+          <button key={c.name} onClick={() => setOpen(open === c.name ? null : c.name)}
+            style={{ flex: 1, padding: "10px 6px", borderRadius: 12, border: `2px solid ${open === c.name ? c.color : "#E8EEF4"}`, background: open === c.name ? c.bg : "#fff", color: c.color, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.06)", transition: "all 0.15s" }}>
+            {c.name}
+          </button>
+        ))}
+      </div>
+      {open && (() => {
+        const c = CONTACTS.find(x => x.name === open);
+        return (
+          <div style={{ marginTop: 10, background: c.bg, borderRadius: 14, padding: "16px 18px", borderLeft: `4px solid ${c.color}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{c.name}</div>
+              <a href={`tel:${c.tel.replace(/\./g, "-")}`}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: c.color, color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 15, fontWeight: 800, textDecoration: "none" }}>
+                📞 {c.tel}
+              </a>
+            </div>
+            <div style={{ borderTop: `1px solid ${c.color}22`, paddingTop: 10 }}>
+              {c.hours.map((h, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: i < c.hours.length - 1 ? 8 : 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: c.color, minWidth: 60 }}>{h.label}</span>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#1A2B3C" }}>{h.time}</div>
+                    {h.note && <div style={{ fontSize: 12, color: "#7A8FA0", marginTop: 2 }}>{h.note}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
