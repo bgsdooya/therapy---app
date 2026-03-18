@@ -209,7 +209,7 @@ function Patient({ user, onLogout }) {
 
   useEffect(() => {
     setLoad(true);
-    api(`schedules?patient_name=eq.${encodeURIComponent(user.name)}&day_type=eq.${tab}&order=start_time.asc`)
+    api(`schedules?patient_name=eq.${encodeURIComponent(user.name)}&day_type=eq.${tab}&specific_date=is.null&order=start_time.asc`)
       .then(d => setList(d || []))
       .catch(() => setList([]))
       .finally(() => setLoad(false));
@@ -367,7 +367,7 @@ function Patient({ user, onLogout }) {
           <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 10, color: "#fff", padding: "9px 16px", fontSize: 14, cursor: "pointer" }}>로그아웃</button>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 20, maxWidth: 600, margin: "20px auto 0" }}>
-          {[["weekday", "📅 평일"], ["weekend", "🌅 주말"]].map(([k, l]) => (
+          {[["weekday", "📅 평일"], ["saturday", "🗓 토요일"]].map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.15)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 800, fontSize: 16, cursor: "pointer" }}>{l}</button>
           ))}
         </div>
@@ -718,6 +718,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
 // ─────────────────────────────────────
 function Admin({ user, onLogout }) {
   const [tab, setTab] = useState("weekday");
+  const [specificDate, setSpecificDate] = useState("");
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [schedules, setSchedules] = useState([]);
@@ -726,7 +727,7 @@ function Admin({ user, onLogout }) {
   const [newPatient, setNewPatient] = useState({ name: "", password: "", room: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const [editingEval, setEditingEval] = useState(null); // 평가 편집 중인 환자 id
+  const [editingEval, setEditingEval] = useState(null);
   const [evalText, setEvalText] = useState("");
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
@@ -740,20 +741,75 @@ function Admin({ user, onLogout }) {
 
   useEffect(() => {
     if (!selectedPatient) return;
+    if (tab === "specific" && !specificDate) return;
     setLoad(true);
-    api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`)
+    const query = tab === "specific"
+      ? `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&specific_date=eq.${specificDate}&order=start_time.asc`
+      : `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&specific_date=is.null&order=start_time.asc`;
+    api(query)
       .then(d => setSchedules(d || []))
       .catch(() => setSchedules([]))
       .finally(() => setLoad(false));
-  }, [selectedPatient, tab]);
+  }, [selectedPatient, tab, specificDate]);
 
   const getSchedulesForTime = (time) =>
     schedules.filter(s => s.start_time <= time && s.end_time > time);
 
   const reloadSchedules = async () => {
     if (!selectedPatient) return;
-    const d = await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&order=start_time.asc`);
+    const query = tab === "specific"
+      ? `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&specific_date=eq.${specificDate}&order=start_time.asc`
+      : `schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${tab}&specific_date=is.null&order=start_time.asc`;
+    const d = await api(query);
     setSchedules(d || []);
+  };
+
+  // 복사 기능
+  const handleCopyFrom = async (fromTab) => {
+    if (!selectedPatient || !specificDate) return;
+    if (!confirm(`${fromTab === "weekday" ? "평일" : "토요일"} 시간표를 ${specificDate}에 복사할까요?
+기존 내용은 삭제됩니다.`)) return;
+    setSaving(true);
+    try {
+      // 기존 날짜 데이터 삭제
+      await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&specific_date=eq.${specificDate}`, { method: "DELETE" });
+      // 복사할 원본 데이터 가져오기
+      const src = await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&day_type=eq.${fromTab}&specific_date=is.null&order=start_time.asc`);
+      if (src && src.length > 0) {
+        for (const s of src) {
+          await api("schedules", {
+            method: "POST",
+            body: JSON.stringify({
+              patient_name: selectedPatient.name,
+              day_type: fromTab,
+              specific_date: specificDate,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              type: s.type,
+              therapist: s.therapist,
+              room: s.room,
+              week_days: s.week_days,
+            }),
+          });
+        }
+      }
+      await reloadSchedules();
+      flash(`${fromTab === "weekday" ? "평일" : "토요일"} 시간표를 복사했습니다 ✓`);
+    } catch (e) { console.error(e); flash("복사 실패"); }
+    finally { setSaving(false); }
+  };
+
+  // 초기화 기능
+  const handleClearSpecific = async () => {
+    if (!selectedPatient || !specificDate) return;
+    if (!confirm(`${specificDate} 시간표를 초기화할까요?`)) return;
+    setSaving(true);
+    try {
+      await api(`schedules?patient_name=eq.${encodeURIComponent(selectedPatient.name)}&specific_date=eq.${specificDate}`, { method: "DELETE" });
+      await reloadSchedules();
+      flash("초기화되었습니다 ✓");
+    } catch (e) { console.error(e); flash("초기화 실패"); }
+    finally { setSaving(false); }
   };
 
   const handleSave = async (time, form, existing) => {
@@ -769,7 +825,8 @@ function Admin({ user, onLogout }) {
           method: "POST",
           body: JSON.stringify({
             patient_name: selectedPatient.name,
-            day_type: tab,
+            day_type: tab === "specific" ? "weekday" : tab,
+            specific_date: tab === "specific" ? specificDate : null,
             start_time: time,
             end_time: form.end_time,
             type: form.type,
@@ -945,13 +1002,31 @@ function Admin({ user, onLogout }) {
             </div>
           ) : (
             <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-              <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name} 시간표 편집</span>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[["weekday", "평일"], ["weekend", "주말"]].map(([k, l]) => (
-                    <button key={k} onClick={() => setTab(k)} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.2)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{l}</button>
-                  ))}
+              <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: tab === "specific" ? 8 : 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name} 시간표 편집</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[["weekday", "평일"], ["saturday", "토요일"], ["specific", "날짜지정"]].map(([k, l]) => (
+                      <button key={k} onClick={() => setTab(k)} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.2)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{l}</button>
+                    ))}
+                  </div>
                 </div>
+                {tab === "specific" && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <input type="date" value={specificDate} onChange={e => setSpecificDate(e.target.value)}
+                      style={{ padding: "5px 8px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, color: "#1A2B3C" }} />
+                    {specificDate && (
+                      <>
+                        <button onClick={() => handleCopyFrom("weekday")} disabled={saving}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#FFF3E0", color: "#E07A00", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>📋 평일 복사</button>
+                        <button onClick={() => handleCopyFrom("saturday")} disabled={saving}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#E8F4F8", color: "#2E7D9F", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>📋 토요일 복사</button>
+                        <button onClick={handleClearSpecific} disabled={saving}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑 초기화</button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               {load ? (
                 <p style={{ textAlign: "center", color: "#7A8FA0", padding: 30 }}>불러오는 중...</p>
