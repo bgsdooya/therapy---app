@@ -133,53 +133,103 @@ function Patient({ user, onLogout }) {
   const todayItems = list.filter(s => isActiveToday(s.week_days));
   const otherItems = list.filter(s => !isActiveToday(s.week_days));
 
-  // ── 10분 전 팝업 알림 ──
-  const [alarm, setAlarm] = useState(null); // { type, start_time }
+  // ── 알람: 입원(15분전) / 외래(전날 18:00) ──
+  const isOutpatient = (user.room || "").trim() === "외래";
+  const [alarm, setAlarm] = useState(null);
   const [dismissed, setDismissed] = useState([]);
 
   useEffect(() => {
+    // 외래 환자: 전날 오후 6시 알람
+    if (isOutpatient) {
+      const timer = setInterval(() => {
+        const now = new Date();
+        const h = now.getHours();
+        const m = now.getMinutes();
+        // 오후 6시 (18:00) 정각 체크
+        if (h === 18 && m === 0) {
+          // 내일 치료가 있는지 확인 (weekday/weekend 기준)
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const tDay = tomorrow.getDay();
+          const isWeekend = tDay === 0 || tDay === 6;
+          const tomorrowType = isWeekend ? "weekend" : "weekday";
+          if (list.length > 0) {
+            const tomorrowItems = list.filter(s => !dismissed.includes("outpatient_" + s.start_time + s.type));
+            if (tomorrowItems.length > 0) {
+              setAlarm({ kind: "outpatient", items: tomorrowItems });
+            }
+          }
+        }
+      }, 30000);
+      return () => clearInterval(timer);
+    }
+
+    // 입원 환자: 치료 15분 전 알람
     if (todayItems.length === 0) return;
     const timer = setInterval(() => {
       const now = new Date();
-      const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
-      // 현재 시각 + 10분 계산
-      const plus10 = new Date(now.getTime() + 10 * 60000);
-      const target = plus10.getHours().toString().padStart(2,"0") + ":" + plus10.getMinutes().toString().padStart(2,"0");
+      const plus15 = new Date(now.getTime() + 15 * 60000);
+      const target = plus15.getHours().toString().padStart(2,"0") + ":" + plus15.getMinutes().toString().padStart(2,"0");
       const hit = todayItems.find(s => s.start_time === target && !dismissed.includes(s.start_time + s.type));
-      if (hit) {
-        setAlarm(hit);
-      }
-    }, 30000); // 30초마다 체크
+      if (hit) setAlarm({ kind: "inpatient", item: hit });
+    }, 30000);
     return () => clearInterval(timer);
-  }, [todayItems, dismissed]);
+  }, [todayItems, dismissed, isOutpatient, list]);
 
   const dismissAlarm = () => {
-    if (alarm) setDismissed(prev => [...prev, alarm.start_time + alarm.type]);
+    if (!alarm) return;
+    if (alarm.kind === "inpatient") {
+      setDismissed(prev => [...prev, alarm.item.start_time + alarm.item.type]);
+    } else {
+      setDismissed(prev => [...prev, ...alarm.items.map(s => "outpatient_" + s.start_time + s.type)]);
+    }
     setAlarm(null);
   };
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0F4F8", fontFamily: "Apple SD Gothic Neo, sans-serif" }}>
-      {/* 10분 전 알람 팝업 */}
+      {/* 알람 팝업 */}
       {alarm && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 24, padding: "32px 28px", maxWidth: 340, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>⏰</div>
-            <div style={{ fontSize: 16, color: "#7A8FA0", marginBottom: 6, fontWeight: 600 }}>10분 후 치료 시작!</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: "#1A2B3C", marginBottom: 8 }}>
-              {alarm.type}
+          {alarm.kind === "inpatient" ? (
+            /* 입원환자: 15분 전 알람 */
+            <div style={{ background: "#fff", borderRadius: 24, padding: "32px 28px", maxWidth: 340, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ fontSize: 56, marginBottom: 12 }}>⏰</div>
+              <div style={{ fontSize: 16, color: "#7A8FA0", marginBottom: 6, fontWeight: 600 }}>15분 후 치료 시작!</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: "#1A2B3C", marginBottom: 8 }}>
+                {alarm.item.type}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#2E7D9F", marginBottom: 16 }}>
+                {alarm.item.start_time} 시작
+              </div>
+              <div style={{ fontSize: 15, color: "#5A7A8A", marginBottom: 24 }}>
+                🏠 {isRFT(alarm.item.type) ? "운동치료실" : (alarm.item.room || "-")}
+                {!isRFT(alarm.item.type) && alarm.item.therapist && <span style={{ marginLeft: 12 }}>👩‍⚕️ {alarm.item.therapist}</span>}
+              </div>
+              <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
+                확인
+              </button>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#2E7D9F", marginBottom: 16 }}>
-              {alarm.start_time} 시작
+          ) : (
+            /* 외래환자: 전날 오후 6시 알람 */
+            <div style={{ background: "#fff", borderRadius: 24, padding: "32px 28px", maxWidth: 360, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ fontSize: 56, marginBottom: 12 }}>📋</div>
+              <div style={{ fontSize: 16, color: "#E07A00", marginBottom: 6, fontWeight: 700, background: "#FFF3E0", borderRadius: 8, padding: "6px 0" }}>내일 치료 일정 안내</div>
+              <div style={{ fontSize: 14, color: "#7A8FA0", marginBottom: 16, marginTop: 8 }}>내일 예약된 치료입니다</div>
+              <div style={{ textAlign: "left", marginBottom: 20 }}>
+                {alarm.items.map((s, i) => (
+                  <div key={i} style={{ background: "#F8FAFC", borderRadius: 10, padding: "12px 14px", marginBottom: 8, borderLeft: `4px solid ${getStyle(s.type).c}` }}>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#1A2B3C", marginBottom: 4 }}>{s.start_time} ~ {s.end_time}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: getStyle(s.type).c }}>{s.type}</div>
+                    {s.therapist && <div style={{ fontSize: 13, color: "#7A8FA0", marginTop: 2 }}>👩‍⚕️ {s.therapist}</div>}
+                  </div>
+                ))}
+              </div>
+              <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E07A00,#B85C00)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
+                확인
+              </button>
             </div>
-            <div style={{ fontSize: 15, color: "#5A7A8A", marginBottom: 24 }}>
-              🏠 {isRFT(alarm.type) ? "운동치료실" : (alarm.room || "-")}
-              {!isRFT(alarm.type) && alarm.therapist && <span style={{ marginLeft: 12 }}>👩‍⚕️ {alarm.therapist}</span>}
-            </div>
-            <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
-              확인
-            </button>
-          </div>
+          )}
         </div>
       )}
 
