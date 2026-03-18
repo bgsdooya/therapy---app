@@ -1,6 +1,74 @@
 "use client";
 import { useState, useEffect } from "react";
 
+// ─────────────────────────────────────
+// PWA 설치 배너
+// ─────────────────────────────────────
+function InstallBanner() {
+  const [prompt, setPrompt] = useState(null);
+  const [show, setShow] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    // 이미 설치됐거나 닫은 경우 숨김
+    try {
+      if (localStorage.getItem("pwa_dismissed")) { setDismissed(true); return; }
+    } catch(e) {}
+    // iOS 감지
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (standalone) return; // 이미 설치됨
+    if (ios) { setIsIOS(true); setShow(true); return; }
+    // 안드로이드 beforeinstallprompt
+    const handler = (e) => { e.preventDefault(); setPrompt(e); setShow(true); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (prompt) { prompt.prompt(); const r = await prompt.userChoice; if (r.outcome === "accepted") setShow(false); }
+  };
+  const handleDismiss = () => {
+    try { localStorage.setItem("pwa_dismissed", "1"); } catch(e) {}
+    setShow(false);
+  };
+
+  if (!show || dismissed) return null;
+
+  return (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 2000, padding: "12px 16px", background: "linear-gradient(135deg,#1A4A6B,#2E7D9F)", boxShadow: "0 -4px 20px rgba(0,0,0,0.2)" }}>
+      <div style={{ maxWidth: 500, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 36 }}>🏥</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>홈화면에 추가하기</div>
+          {isIOS ? (
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
+              하단 공유버튼(📤) → "홈 화면에 추가" 탭
+            </div>
+          ) : (
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
+              앱처럼 설치하면 더 편리하게 사용할 수 있어요!
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {!isIOS && (
+            <button onClick={handleInstall}
+              style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#fff", color: "#2E7D9F", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+              설치
+            </button>
+          )}
+          <button onClick={handleDismiss}
+            style={{ padding: "8px 10px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.4)", background: "transparent", color: "#fff", fontSize: 13, cursor: "pointer" }}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const SU = "https://assautgcinohojjgufjn.supabase.co";
 const SK = "sb_publishable_zew7hL6PtkxDqrbN5ocUZg_cHBJ4fcw";
 
@@ -739,9 +807,15 @@ export default function App() {
     </div>
   );
 
-  return user
-    ? user.role === "admin"
-      ? <Admin user={user} onLogout={handleLogout} />
-      : <Patient user={user} onLogout={handleLogout} />
-    : <Login onLogin={handleLogin} />;
+  return (
+    <>
+      <InstallBanner />
+      {user
+        ? user.role === "admin"
+          ? <Admin user={user} onLogout={handleLogout} />
+          : <Patient user={user} onLogout={handleLogout} />
+        : <Login onLogin={handleLogin} />
+      }
+    </>
+  );
 }
