@@ -96,14 +96,23 @@ async function api(path, opt = {}) {
 }
 
 const TC = {
-  물리치료:  { bg: "#E8F4F8", c: "#2E7D9F" },
-  작업치료:  { bg: "#EAF6EE", c: "#2E7D52" },
-  연하치료:  { bg: "#FFF3E0", c: "#E07A00" },
-  인지치료:  { bg: "#F3E8FF", c: "#7B2EAF" },
-  운동치료:  { bg: "#E0F7FA", c: "#00838F" },
-  기타:      { bg: "#F5F5F5", c: "#555555" },
+  물리치료:              { bg: "#E8F4F8", c: "#2E7D9F" },
+  작업치료:              { bg: "#EAF6EE", c: "#2E7D52" },
+  연하치료:              { bg: "#FFF3E0", c: "#E07A00" },
+  "연하전기(Stim plus)": { bg: "#FFF3E0", c: "#BF360C" },
+  "순차적연하전기(RS Stim)": { bg: "#FFF3E0", c: "#E64A19" },
+  인지치료:              { bg: "#F3E8FF", c: "#7B2EAF" },
+  운동치료:              { bg: "#E0F7FA", c: "#00838F" },
+  기타:                  { bg: "#F5F5F5", c: "#555555" },
 };
-const TYPES = ["물리치료", "작업치료", "연하치료", "인지치료", "운동치료", "기타"];
+const TYPES = ["물리치료", "작업치료", "연하치료", "연하전기(Stim plus)", "순차적연하전기(RS Stim)", "인지치료", "운동치료", "기타"];
+
+// 치료사 없는 항목 (RFT 제외)
+const NO_THERAPIST_TYPES = ["물리치료", "연하전기(Stim plus)", "순차적연하전기(RS Stim)"];
+// 치료사·치료실 둘 다 없는 항목
+const NO_THERAPIST_NO_ROOM_TYPES = ["물리치료"];
+// 치료실만 있는 항목 (치료사 없음)
+const ROOM_ONLY_TYPES = ["연하전기(Stim plus)", "순차적연하전기(RS Stim)"];
 const RFT_ITEMS = [
   "코끼리자전거", "자동상하지자전거", "전기(FES)", "서기(Tilt)",
   "서기(ST)", "서기(큐보드)", "트래드밀", "스텝퍼",
@@ -119,6 +128,8 @@ function getStyle(type) {
   return RFT_ITEMS.includes(type) ? RFT_STYLE : (TC[type] || { bg: "#eee", c: "#444" });
 }
 function isRFT(type) { return RFT_ITEMS.includes(type); }
+function noTherapist(type) { return isRFT(type) || NO_THERAPIST_TYPES.includes(type); }
+function noRoom(type) { return isRFT(type) || NO_THERAPIST_NO_ROOM_TYPES.includes(type); }
 function getWdColor(week_days) {
   if (!week_days) return null;
   if (WEEK_DAYS_COLOR[week_days]) return WEEK_DAYS_COLOR[week_days];
@@ -404,8 +415,9 @@ function Patient({ user, onLogout }) {
                         )}
                       </div>
                       <div style={{ fontSize: 18, color: "#5A7A8A", display: "flex", gap: 12 }}>
-                        <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
-                        <span>👩‍⚕️ {isRFT(s.type) ? "" : (s.therapist || "-")}</span>
+                        {!noRoom(s.type) && <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>}
+                        {isRFT(s.type) && <span>🏠 운동치료실</span>}
+                        {!noTherapist(s.type) && <span>👩‍⚕️ {s.therapist || "-"}</span>}
                       </div>
                     </div>
                   </div>
@@ -461,8 +473,9 @@ function Patient({ user, onLogout }) {
                           )}
                         </div>
                         <div style={{ fontSize: 16, color: "#aaa" }}>
-                          <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>
-                          {!isRFT(s.type) && <span style={{ marginLeft: 12 }}>👩‍⚕️ {s.therapist || "-"}</span>}
+                          {!noRoom(s.type) && <span>🏠 {isRFT(s.type) ? "운동치료실" : (s.room || "-")}</span>}
+                          {isRFT(s.type) && <span>🏠 운동치료실</span>}
+                          {!noTherapist(s.type) && <span style={{ marginLeft: 12 }}>👩‍⚕️ {s.therapist || "-"}</span>}
                         </div>
                       </div>
                     </div>
@@ -584,19 +597,25 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
   };
 
   const rft = isRFT(form.type);
+  const noTherapistForm = noTherapist(form.type);
+  const noRoomForm = noRoom(form.type);
 
   const handleTypeChange = (val) => {
     setForm(prev => ({
       ...prev, type: val,
-      therapist: isRFT(val) ? "" : prev.therapist,
+      therapist: noTherapist(val) ? "" : prev.therapist,
       room: isRFT(val) ? "운동치료실" : prev.room,
     }));
   };
 
   const handleSave = async () => {
     if (!form.type) return;
-    if (!rft && !form.therapist.trim()) return;
-    const saveData = { ...form, therapist: rft ? "" : form.therapist, room: rft ? "운동치료실" : form.room };
+    if (!noTherapist(form.type) && !form.therapist.trim()) return;
+    const saveData = {
+      ...form,
+      therapist: noTherapist(form.type) ? "" : form.therapist,
+      room: isRFT(form.type) ? "운동치료실" : form.room,
+    };
     await onSave(time, saveData, editTarget);
     setEditing(false);
   };
@@ -662,9 +681,15 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
           <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#C2185B", background: "#FFF0F5", borderRadius: 6, border: "1.5px solid #F8BBD0" }}>
             🏋️ 운동치료실 · 치료사 없음
           </div>
+        ) : noRoomForm ? (
+          <div style={{ padding: "4px 6px", marginBottom: 4, fontSize: 11, color: "#2E7D9F", background: "#E8F4F8", borderRadius: 6, border: "1.5px solid #B3D9EF" }}>
+            🏥 치료사·치료실 없음
+          </div>
         ) : (
           <>
-            <input value={form.therapist} onChange={e => setForm(p => ({ ...p, therapist: e.target.value }))} placeholder="치료사" style={cellInp} />
+            {!noTherapistForm && (
+              <input value={form.therapist} onChange={e => setForm(p => ({ ...p, therapist: e.target.value }))} placeholder="치료사" style={cellInp} />
+            )}
             <input value={form.room} onChange={e => setForm(p => ({ ...p, room: e.target.value }))} placeholder="치료실" style={cellInp} />
           </>
         )}
@@ -700,7 +725,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
                   {s.type}
                   {s.week_days && <span style={{ marginLeft: 4, fontSize: 9, background: wdColor, color: "#fff", borderRadius: 3, padding: "1px 4px" }}>{s.week_days}</span>}
                 </div>
-                {!isRFT(s.type) && s.therapist && <div style={{ fontSize: 10, color: "#666" }}>{s.therapist}</div>}
+                {!noTherapist(s.type) && s.therapist && <div style={{ fontSize: 10, color: "#666" }}>{s.therapist}</div>}
                 {isRFT(s.type) && <div style={{ fontSize: 10, color: "#C2185B" }}>운동치료실</div>}
               </div>
             </div>
