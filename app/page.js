@@ -236,7 +236,7 @@ function Patient({ user, onLogout }) {
   const [adminMsg, setAdminMsg] = useState(null);
   const [notifPermission, setNotifPermission] = useState("default");
 
-  // 알림 권한 요청
+  // 알림 권한 요청 + 서비스워커에 환자 이름 전달
   useEffect(() => {
     if ("Notification" in window) {
       setNotifPermission(Notification.permission);
@@ -244,7 +244,15 @@ function Patient({ user, onLogout }) {
         Notification.requestPermission().then(p => setNotifPermission(p));
       }
     }
-  }, []);
+    // 서비스워커에 환자 이름 전달 (백그라운드 체크용)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        if (reg.active) {
+          reg.active.postMessage({ type: "SET_PATIENT", name: user.name });
+        }
+      });
+    }
+  }, [user.name]);
 
   useEffect(() => {
     const checkMsg = async () => {
