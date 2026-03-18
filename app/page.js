@@ -300,6 +300,15 @@ function Patient({ user, onLogout }) {
                   </div>
                 ))}
               </div>
+              {/* 평가 안내 */}
+              {user.evaluation && (
+                <div style={{ background: "#F3E8FF", borderRadius: 12, padding: "12px 14px", marginBottom: 16, textAlign: "left", borderLeft: "4px solid #7B2EAF" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#7B2EAF", marginBottom: 6 }}>📋 오늘 평가가 있어요!</div>
+                  {user.evaluation.split(",").map((e, i) => (
+                    <div key={i} style={{ fontSize: 14, color: "#5A3A7A", fontWeight: 600 }}>· {e.trim()}</div>
+                  ))}
+                </div>
+              )}
               <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#2E7D9F,#1A5C7A)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
                 확인
               </button>
@@ -319,6 +328,15 @@ function Patient({ user, onLogout }) {
                   </div>
                 ))}
               </div>
+              {/* 평가 안내 */}
+              {user.evaluation && (
+                <div style={{ background: "#F3E8FF", borderRadius: 12, padding: "12px 14px", marginBottom: 16, textAlign: "left", borderLeft: "4px solid #7B2EAF" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#7B2EAF", marginBottom: 6 }}>📋 내일 평가가 있어요!</div>
+                  {user.evaluation.split(",").map((e, i) => (
+                    <div key={i} style={{ fontSize: 14, color: "#5A3A7A", fontWeight: 600 }}>· {e.trim()}</div>
+                  ))}
+                </div>
+              )}
               <button onClick={dismissAlarm} style={{ width: "100%", padding: "14px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E07A00,#B85C00)", color: "#fff", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
                 확인
               </button>
@@ -584,6 +602,8 @@ function Admin({ user, onLogout }) {
   const [newPatient, setNewPatient] = useState({ name: "", password: "", room: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [editingEval, setEditingEval] = useState(null); // 평가 편집 중인 환자 id
+  const [evalText, setEvalText] = useState("");
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -677,6 +697,23 @@ function Admin({ user, onLogout }) {
     finally { setSaving(false); }
   };
 
+  const handleSaveEval = async (p) => {
+    setSaving(true);
+    try {
+      await api(`users?id=eq.${p.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ evaluation: evalText.trim() }),
+      });
+      setPatients(prev => prev.map(u => u.id === p.id ? { ...u, evaluation: evalText.trim() } : u));
+      if (selectedPatient && selectedPatient.id === p.id) {
+        setSelectedPatient(prev => ({ ...prev, evaluation: evalText.trim() }));
+      }
+      setEditingEval(null);
+      flash("평가 안내가 저장됐습니다 ✓");
+    } catch (e) { console.error(e); flash("저장 실패"); }
+    finally { setSaving(false); }
+  };
+
   const handleDeletePatient = async (p) => {
     if (!confirm(`${p.name} 환자를 삭제할까요?\n시간표도 모두 삭제됩니다.`)) return;
     setSaving(true);
@@ -736,15 +773,40 @@ function Admin({ user, onLogout }) {
               <p style={{ textAlign: "center", color: "#7A8FA0", padding: 20, fontSize: 12 }}>환자 없음</p>
             )}
             {patients.map(p => (
-              <div key={p.id}
-                style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #F0F4F8", background: selectedPatient && selectedPatient.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                onClick={() => setSelectedPatient(p)}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: selectedPatient && selectedPatient.id === p.id ? 700 : 500, color: selectedPatient && selectedPatient.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
-                  {p.room && <div style={{ fontSize: 10, color: "#7A8FA0" }}>{p.room}</div>}
+              <div key={p.id} style={{ borderBottom: "1px solid #F0F4F8" }}>
+                <div
+                  style={{ padding: "10px 14px", cursor: "pointer", background: selectedPatient && selectedPatient.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  onClick={() => setSelectedPatient(p)}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: selectedPatient && selectedPatient.id === p.id ? 700 : 500, color: selectedPatient && selectedPatient.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
+                    {p.room && <div style={{ fontSize: 10, color: "#7A8FA0" }}>{p.room}</div>}
+                    {p.evaluation && <div style={{ fontSize: 10, color: "#7B2EAF", marginTop: 2 }}>📋 {p.evaluation}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <button onClick={e => { e.stopPropagation(); setEditingEval(p.id); setEvalText(p.evaluation || ""); }}
+                      style={{ background: "none", border: "none", color: "#7B2EAF", fontSize: 13, cursor: "pointer", padding: "2px 4px" }} title="평가 안내">📋</button>
+                    <button onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
+                      style={{ background: "none", border: "none", color: "#ccc", fontSize: 14, cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                  </div>
                 </div>
-                <button onClick={e => { e.stopPropagation(); handleDeletePatient(p); }}
-                  style={{ background: "none", border: "none", color: "#ccc", fontSize: 14, cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                {/* 평가 편집 인라인 폼 */}
+                {editingEval === p.id && (
+                  <div style={{ padding: "8px 10px", background: "#F3E8FF", borderTop: "1px solid #E8D5F5" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#7B2EAF", marginBottom: 4 }}>📋 평가 안내 입력</div>
+                    <input
+                      value={evalText}
+                      onChange={e => setEvalText(e.target.value)}
+                      placeholder="예: 운동평가, 작업평가"
+                      style={{ ...smallInp, marginBottom: 4, fontSize: 11 }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => handleSaveEval(p)} disabled={saving}
+                        style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#7B2EAF", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>저장</button>
+                      <button onClick={() => setEditingEval(null)}
+                        style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #DDE6EE", background: "#fff", fontSize: 11, cursor: "pointer" }}>취소</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
