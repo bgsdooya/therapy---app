@@ -627,7 +627,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
 // ─────────────────────────────────────
 // 관리자 화면
 // ─────────────────────────────────────
-function Admin({ user, onLogout }) {
+function Admin({ user, onLogout, isSuperAdmin=false }) {
   const [tab, setTab] = useState("weekday");
   const [specificDate, setSpecificDate] = useState("");
   const [patients, setPatients] = useState([]);
@@ -653,6 +653,9 @@ function Admin({ user, onLogout }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+  const writeLog = async (action, detail="") => {
+    try { await api("logs", { method:"POST", body: JSON.stringify({ admin_name: user.name, action, detail }) }); } catch(e) {}
+  };
 
   const loadPatients = async () => {
     const d = await api("users?order=name.asc");
@@ -744,6 +747,7 @@ function Admin({ user, onLogout }) {
       if (added?.id) { setPatients(prev => [...prev, added].sort((a,b) => (a.name||"").localeCompare(b.name||"","ko"))); }
       else { await loadPatients(); }
       setNewPatient({ name:"", password:"", room:"" }); setShowAddPatient(false); flash("추가 ✓");
+      await writeLog("환자 추가", `${newPatient.name.trim()} (${newPatient.room.trim()||"병실미입력"})`);
     } catch(e) { flash("추가 실패"); } finally { setSaving(false); }
   };
 
@@ -766,6 +770,7 @@ function Admin({ user, onLogout }) {
       await loadPatients();
       if (selectedPatient?.id === p.id) setSelectedPatient(null);
       flash("삭제 ✓");
+      await writeLog("환자 삭제", p.name);
     } catch(e) { flash("실패"); } finally { setSaving(false); }
   };
 
@@ -775,6 +780,7 @@ function Admin({ user, onLogout }) {
     try {
       await api("holidays", { method:"POST", body: JSON.stringify({ holiday_date: newHoliday.date, memo: newHoliday.memo.trim() }) });
       setNewHoliday({ date:"", memo:"" }); await loadHolidays(); flash("휴무일 등록 ✓");
+      await writeLog("휴무일 등록", `${newHoliday.date} ${newHoliday.memo}`);
     } catch(e) { flash("실패"); } finally { setSaving(false); }
   };
 
@@ -792,7 +798,9 @@ function Admin({ user, onLogout }) {
       const targets = msgTarget === null ? patients : msgTarget;
       for (const p of targets) await api("messages", { method:"POST", body: JSON.stringify({ patient_name: p.name, content: msgText.trim() }) });
       setMsgText(""); setShowMsg(false);
+      const logDetail = msgTarget === null ? `전체 ${patients.length}명` : Array.isArray(msgTarget) ? msgTarget.map(t=>t.name).join(", ") : msgTarget.name;
       flash(msgTarget === null ? `전체 ${patients.length}명 전송 ✓` : `${Array.isArray(msgTarget) ? msgTarget.length : 1}명 전송 ✓`);
+      await writeLog("메시지 전송", `${logDetail} - ${msgText.trim().slice(0,30)}`);
     } catch(e) { flash("실패"); } finally { setSaving(false); }
   };
 
@@ -871,21 +879,29 @@ function Admin({ user, onLogout }) {
 
   return (
     <div style={{ minHeight:"100vh", background:"#F0F4F8", fontFamily:"Apple SD Gothic Neo, sans-serif" }}>
-      <div style={{ background:"linear-gradient(135deg,#1A3A5C,#2E7D9F)", padding:"48px 20px 20px", color:"#fff" }}>
-        <div style={{ maxWidth:900, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <p style={{ margin:0, fontSize:12, opacity:0.75 }}>🏥 양산제일병원 관리자</p>
-            <h2 style={{ margin:"3px 0 0", fontSize:20, fontWeight:800 }}>{user.name}님</h2>
-          </div>
-          <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
-            {msg && <span style={{ background:"#4CAF8A", color:"#fff", padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:700 }}>{msg}</span>}
-            {saving && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>처리 중...</span>}
-            <button onClick={() => { setShowMsg(p => !p); setMsgTarget(null); setMsgText(""); }} style={{ background:"rgba(255,200,0,0.25)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>📢 메시지</button>
-            <button onClick={() => setShowHoliday(p => !p)} style={{ background:"rgba(255,100,100,0.25)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>🗓 휴무일</button>
-            <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer" }}>로그아웃</button>
+      {!isSuperAdmin && (
+        <div style={{ background:"linear-gradient(135deg,#1A3A5C,#2E7D9F)", padding:"48px 20px 20px", color:"#fff" }}>
+          <div style={{ maxWidth:900, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <p style={{ margin:0, fontSize:12, opacity:0.75 }}>🏥 양산제일병원 관리자</p>
+              <h2 style={{ margin:"3px 0 0", fontSize:20, fontWeight:800 }}>{user.name}님</h2>
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
+              {msg && <span style={{ background:"#4CAF8A", color:"#fff", padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:700 }}>{msg}</span>}
+              {saving && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>처리 중...</span>}
+              <button onClick={() => { setShowMsg(p => !p); setMsgTarget(null); setMsgText(""); }} style={{ background:"rgba(255,200,0,0.25)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>📢 메시지</button>
+              <button onClick={() => setShowHoliday(p => !p)} style={{ background:"rgba(255,100,100,0.25)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>🗓 휴무일</button>
+              <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer" }}>로그아웃</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      {isSuperAdmin && (msg || saving) && (
+        <div style={{ maxWidth:900, margin:"0 auto", padding:"8px 14px 0", display:"flex", gap:8 }}>
+          {msg && <span style={{ background:"#4CAF8A", color:"#fff", padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:700 }}>{msg}</span>}
+          {saving && <span style={{ color:"#7A8FA0", fontSize:12 }}>처리 중...</span>}
+        </div>
+      )}
 
       {/* 메시지 패널 */}
       {showMsg && (
@@ -1096,6 +1112,98 @@ function Admin({ user, onLogout }) {
 // 메인
 // ─────────────────────────────────────
 // ─────────────────────────────────────
+// 팀장(SuperAdmin) 화면 - Admin + 로그 조회
+// ─────────────────────────────────────
+function SuperAdmin({ user, onLogout }) {
+  const [mainTab, setMainTab] = useState("admin"); // "admin" | "logs"
+  const [logs, setLogs] = useState([]);
+  const [logsLoad, setLogsLoad] = useState(false);
+  const [logFilter, setLogFilter] = useState("");
+
+  const loadLogs = async () => {
+    setLogsLoad(true);
+    try {
+      const d = await api("logs?order=created_at.desc&limit=200");
+      setLogs(d || []);
+    } catch(e) {} finally { setLogsLoad(false); }
+  };
+
+  useEffect(() => { if (mainTab === "logs") loadLogs(); }, [mainTab]);
+
+  const filteredLogs = logs.filter(l =>
+    !logFilter || l.admin_name.includes(logFilter) || l.action.includes(logFilter) || l.detail.includes(logFilter)
+  );
+
+  const ACTION_COLOR = {
+    "환자 추가": "#2E7D52", "환자 삭제": "#E05C5C",
+    "메시지 전송": "#E07A00", "휴무일 등록": "#C62828",
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#F0F4F8", fontFamily:"Apple SD Gothic Neo, sans-serif" }}>
+      {/* 탭 전환 헤더 */}
+      <div style={{ background:"linear-gradient(135deg,#1A3A5C,#7B2EAF)", padding:"48px 20px 0", color:"#fff" }}>
+        <div style={{ maxWidth:900, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div>
+            <p style={{ margin:0, fontSize:12, opacity:0.75 }}>👑 양산제일병원 재활치료팀장</p>
+            <h2 style={{ margin:"3px 0 0", fontSize:20, fontWeight:800 }}>{user.name}님</h2>
+          </div>
+          <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer" }}>로그아웃</button>
+        </div>
+        <div style={{ maxWidth:900, margin:"0 auto", display:"flex", gap:4 }}>
+          {[["admin","📋 시간표 관리"],["logs","📊 활동 로그"]].map(([k,l]) => (
+            <button key={k} onClick={() => setMainTab(k)}
+              style={{ padding:"10px 20px", border:"none", borderRadius:"10px 10px 0 0", background: mainTab===k ? "#F0F4F8" : "rgba(255,255,255,0.15)", color: mainTab===k ? "#7B2EAF" : "#fff", fontWeight:800, fontSize:13, cursor:"pointer" }}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {mainTab === "admin"
+        ? <Admin user={user} onLogout={onLogout} isSuperAdmin={true} />
+        : (
+          <div style={{ maxWidth:900, margin:"0 auto", padding:"16px 14px" }}>
+            <div style={{ background:"#fff", borderRadius:14, overflow:"hidden", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+              <div style={{ background:"#7B2EAF", color:"#fff", padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:14, fontWeight:700 }}>📊 활동 로그</span>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <input value={logFilter} onChange={e => setLogFilter(e.target.value)} placeholder="🔍 검색" style={{ padding:"5px 10px", borderRadius:8, border:"none", fontSize:12, outline:"none", width:120 }} />
+                  <button onClick={loadLogs} style={{ padding:"5px 12px", borderRadius:8, border:"none", background:"rgba(255,255,255,0.2)", color:"#fff", fontSize:12, cursor:"pointer" }}>🔄 새로고침</button>
+                </div>
+              </div>
+              {logsLoad ? <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>불러오는 중...</p>
+              : filteredLogs.length === 0 ? <p style={{ textAlign:"center", color:"#7A8FA0", padding:30 }}>로그가 없습니다</p>
+              : (
+                <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                  <thead>
+                    <tr style={{ background:"#F8FAFC" }}>
+                      {["일시","관리자","작업","상세"].map(h => <th key={h} style={{ padding:"10px 12px", fontSize:12, fontWeight:700, color:"#7A8FA0", textAlign:"left", borderBottom:"2px solid #EEF2F7" }}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map((l,i) => (
+                      <tr key={l.id} style={{ background: i%2===0 ? "#fff" : "#FAFBFC" }}>
+                        <td style={{ padding:"10px 12px", fontSize:12, color:"#7A8FA0", borderBottom:"1px solid #F0F4F8", whiteSpace:"nowrap" }}>
+                          {new Date(l.created_at).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+                        </td>
+                        <td style={{ padding:"10px 12px", fontSize:12, fontWeight:700, color:"#1A2B3C", borderBottom:"1px solid #F0F4F8" }}>{l.admin_name}</td>
+                        <td style={{ padding:"10px 12px", borderBottom:"1px solid #F0F4F8" }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:"#fff", background: ACTION_COLOR[l.action]||"#7A8FA0", borderRadius:6, padding:"3px 8px" }}>{l.action}</span>
+                        </td>
+                        <td style={{ padding:"10px 12px", fontSize:12, color:"#5A7A8A", borderBottom:"1px solid #F0F4F8" }}>{l.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )
+      }
+    </div>
+  );
+}
+
+// ─────────────────────────────────────
 // 스플래시 화면
 // ─────────────────────────────────────
 function Splash() {
@@ -1133,9 +1241,11 @@ export default function App() {
   return (
     <>
       {user
-        ? user.role === "admin"
-          ? <Admin user={user} onLogout={handleLogout} />
-          : <Patient user={user} onLogout={handleLogout} />
+        ? user.role === "superadmin"
+          ? <SuperAdmin user={user} onLogout={handleLogout} />
+          : user.role === "admin"
+            ? <Admin user={user} onLogout={handleLogout} />
+            : <Patient user={user} onLogout={handleLogout} />
         : <Login onLogin={handleLogin} />
       }
     </>
