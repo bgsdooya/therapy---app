@@ -933,7 +933,7 @@ function Admin({ user, onLogout }) {
                     <span style={{ color:"#E07A00" }}>※ 치료사·치료실은 등록 후 직접 입력해주세요</span>
                   </div>
                   <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
-                    placeholder={"0900 운동치료\n0930 FES\n1000 작업치료\n1030 물리치료\n1400 연하치료"}
+                    placeholder="시간표를 입력해주세요" 
                     style={{ width:"100%", minHeight:120, padding:"8px 10px", borderRadius:8, border:"1.5px solid #B3D9EF", fontSize:13, resize:"vertical", boxSizing:"border-box", fontFamily:"monospace", marginBottom:8, outline:"none" }} />
                   <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                     <select value={textInputMode} onChange={e => setTextInputMode(e.target.value)} style={{ padding:"5px 8px", borderRadius:7, border:"1.5px solid #DDE6EE", fontSize:12, outline:"none" }}>
@@ -1005,7 +1005,7 @@ export default function App() {
       if (saved) { const p = JSON.parse(saved); if (p && p.id) setUser(p); }
     } catch(e) {}
     setChecking(false);
-    const t = setTimeout(() => setSplash(false), 1200);
+    const t = setTimeout(() => setSplash(false), 900);
     return () => clearTimeout(t);
   }, []);
 
