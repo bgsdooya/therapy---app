@@ -423,6 +423,7 @@ function Admin({ user, onLogout }) {
   const [newPatient, setNewPatient] = useState({ name: "", password: "", room: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [showPatientList, setShowPatientList] = useState(true);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -548,15 +549,13 @@ function Admin({ user, onLogout }) {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px", display: "flex", gap: 14, flexWrap: "wrap" }}>
-        {/* 환자 목록 - 모바일에서 선택 후 숨김 */}
-        <div style={{ width: "100%", maxWidth: selectedPatient && !showPatientList ? 0 : 200, flexShrink: 0, overflow: selectedPatient && !showPatientList ? "hidden" : "visible", transition: "max-width 0.2s" }}>
-          <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", minWidth: 180 }}>
+        {/* 환자 목록 */}
+        <div style={{ width: showPatientList ? 200 : 0, minWidth: showPatientList ? 180 : 0, flexShrink: 0, overflow: "hidden", transition: "width 0.2s" }}>
+          <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>환자 목록</span>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button onClick={() => setShowAddPatient(p => !p)}
-                  style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, color: "#fff", width: 26, height: 26, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-              </div>
+              <button onClick={() => setShowAddPatient(p => !p)}
+                style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, color: "#fff", width: 26, height: 26, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
             {showAddPatient && (
               <div style={{ padding: 10, background: "#FFFDE7", borderBottom: "1px solid #F0F4F8" }}>
@@ -579,7 +578,7 @@ function Admin({ user, onLogout }) {
             {patients.map(p => (
               <div key={p.id}
                 style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #F0F4F8", background: selectedPatient && selectedPatient.id === p.id ? "#E8F4F8" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                onClick={() => setSelectedPatient(p)}>
+                onClick={() => { setSelectedPatient(p); setShowPatientList(false); }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: selectedPatient && selectedPatient.id === p.id ? 700 : 500, color: selectedPatient && selectedPatient.id === p.id ? "#2E7D9F" : "#1A2B3C" }}>{p.name}</div>
                   {p.room && <div style={{ fontSize: 10, color: "#7A8FA0" }}>{p.room}</div>}
@@ -601,7 +600,11 @@ function Admin({ user, onLogout }) {
           ) : (
             <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
               <div style={{ background: "#2E7D9F", color: "#fff", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name} 시간표 편집</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button onClick={() => setShowPatientList(true)}
+                      style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, color: "#fff", padding: "4px 8px", fontSize: 12, cursor: "pointer" }}>◀ 목록</button>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedPatient.name}</span>
+                  </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   {[["weekday", "평일"], ["weekend", "주말"]].map(([k, l]) => (
                     <button key={k} onClick={() => setTab(k)} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: tab === k ? "#fff" : "rgba(255,255,255,0.2)", color: tab === k ? "#2E7D9F" : "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{l}</button>
