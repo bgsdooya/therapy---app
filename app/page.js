@@ -445,7 +445,7 @@ function Patient({ user, onLogout }) {
 // ─────────────────────────────────────
 // 치료실 선택 컴포넌트
 // ─────────────────────────────────────
-const ROOM_PRESETS = ["운동 BT-", "작업 BT-", "작업 치료테이블", "연하치료실", "인지치료실", "ADL실", "직접입력"];
+const ROOM_PRESETS = ["운동 BT-", "작업 BT-", "작업 치료테이블", "연하치료실", "인지치료실", "ADL실", "소아치료실", "직접입력"];
 
 function RoomSelect({ value, onChange, cellInp }) {
   const isPreset = ROOM_PRESETS.slice(0, -1).some(p => value === p || (p.endsWith("-") && value.startsWith(p)));
