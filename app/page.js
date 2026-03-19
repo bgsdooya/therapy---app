@@ -71,6 +71,12 @@ function resolveType(raw) {
 
 function noTherapist(type) { return isRFT(type) || NO_THERAPIST_TYPES.includes(type); }
 function noRoom(type) { return NO_THERAPIST_NO_ROOM_TYPES.includes(type); }
+function defaultRoom(type) {
+  if (isRFT(type)) return "운동치료실";
+  if (type === "연하전기(Stim plus)") return "작업치료실";
+  if (type === "순차적연하전기(RS Stim)") return "작업치료실";
+  return "";
+}
 
 // 0900 → "09:00" 변환
 function parseTime(raw) {
@@ -556,12 +562,12 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
   const noTherapistForm = noTherapist(form.type);
   const noRoomForm = noRoom(form.type);
 
-  const handleTypeChange = (val) => setForm(prev => ({ ...prev, type:val, therapist: noTherapist(val) ? "" : prev.therapist, room: isRFT(val) ? "운동치료실" : prev.room }));
+  const handleTypeChange = (val) => setForm(prev => ({ ...prev, type:val, therapist: noTherapist(val) ? "" : prev.therapist, room: defaultRoom(val) || prev.room }));
 
   const handleSave = async () => {
     if (!form.type) return;
     // 치료사/치료실 공란 허용
-    await onSave(time, { ...form, therapist: noTherapist(form.type) ? "" : form.therapist, room: isRFT(form.type) ? "운동치료실" : form.room }, editTarget);
+    await onSave(time, { ...form, therapist: noTherapist(form.type) ? "" : form.therapist, room: defaultRoom(form.type) || form.room }, editTarget);
     setEditing(false);
   };
   const handleDelete = async () => { if (!editTarget) return; await onDelete(editTarget.id); setEditing(false); };
@@ -903,7 +909,7 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
           start_time: p.start_time, end_time: p.end_time,
           type: p.type,
           therapist: noTherapist(p.type) ? "" : p.therapist,
-          room: isRFT(p.type) ? "운동치료실" : p.room,
+          room: p.room || defaultRoom(p.type),
           week_days: p.week_days,
         }) });
       }
