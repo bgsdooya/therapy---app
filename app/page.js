@@ -443,6 +443,81 @@ function Patient({ user, onLogout }) {
   );
 }
 // ─────────────────────────────────────
+// 치료실 선택 컴포넌트
+// ─────────────────────────────────────
+const ROOM_PRESETS = ["운동 BT-", "작업 BT-", "작업 치료테이블", "연하치료실", "인지치료실", "ADL실", "직접입력"];
+
+function RoomSelect({ value, onChange, cellInp }) {
+  const isPreset = ROOM_PRESETS.slice(0, -1).some(p => value === p || (p.endsWith("-") && value.startsWith(p)));
+  const isBT = value.startsWith("운동 BT-") || value.startsWith("작업 BT-");
+
+  // 현재 선택된 프리셋 찾기
+  const getSelected = () => {
+    if (!value) return "";
+    if (value === "작업 치료테이블") return "작업 치료테이블";
+    if (value === "연하치료실") return "연하치료실";
+    if (value === "인지치료실") return "인지치료실";
+    if (value === "ADL실") return "ADL실";
+    if (value.startsWith("운동 BT-")) return "운동 BT-";
+    if (value.startsWith("작업 BT-")) return "작업 BT-";
+    return "직접입력";
+  };
+
+  const getBTNum = () => {
+    if (value.startsWith("운동 BT-")) return value.replace("운동 BT-", "");
+    if (value.startsWith("작업 BT-")) return value.replace("작업 BT-", "");
+    return "";
+  };
+
+  const selected = getSelected();
+
+  const handleSelect = (val) => {
+    if (val === "운동 BT-" || val === "작업 BT-") {
+      onChange(val); // 일단 접두사만 저장, 숫자는 입력 대기
+    } else if (val === "직접입력") {
+      onChange("");
+    } else {
+      onChange(val);
+    }
+  };
+
+  const handleNumInput = (num) => {
+    if (value.startsWith("운동 BT-")) onChange("운동 BT-" + num);
+    else if (value.startsWith("작업 BT-")) onChange("작업 BT-" + num);
+  };
+
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <select
+        value={selected}
+        onChange={e => handleSelect(e.target.value)}
+        style={{ ...cellInp, marginBottom: (value.startsWith("운동 BT-") || value.startsWith("작업 BT-")) ? 4 : 0 }}>
+        <option value="">치료실 선택</option>
+        {ROOM_PRESETS.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+      {(value.startsWith("운동 BT-") || value.startsWith("작업 BT-")) && (
+        <input
+          value={getBTNum()}
+          onChange={e => handleNumInput(e.target.value)}
+          placeholder="번호 입력 (예: 3)"
+          style={{ ...cellInp, marginBottom: 0 }}
+          autoFocus
+        />
+      )}
+      {selected === "직접입력" && (
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="치료실 직접 입력"
+          style={{ ...cellInp, marginBottom: 0 }}
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────
 // 시간표 편집 셀
 // ─────────────────────────────────────
 function ScheduleCell({ time, schedules, onSave, onDelete }) {
@@ -504,7 +579,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
       )}
       {rft ? <div style={{ padding:"4px 6px", marginBottom:4, fontSize:11, color:"#C2185B", background:"#FFF0F5", borderRadius:6, border:"1.5px solid #F8BBD0" }}>🏋️ 운동치료실 · 치료사 없음</div>
       : noRoomForm ? <div style={{ padding:"4px 6px", marginBottom:4, fontSize:11, color:"#2E7D9F", background:"#E8F4F8", borderRadius:6, border:"1.5px solid #B3D9EF" }}>🏥 치료사·치료실 없음</div>
-      : <>{!noTherapistForm && <input value={form.therapist} onChange={e => setForm(p => ({ ...p, therapist:e.target.value }))} placeholder="치료사" style={cellInp} />}<input value={form.room} onChange={e => setForm(p => ({ ...p, room:e.target.value }))} placeholder="치료실" style={cellInp} /></>}
+      : <>{!noTherapistForm && <input value={form.therapist} onChange={e => setForm(p => ({ ...p, therapist:e.target.value }))} placeholder="치료사" style={cellInp} />}<RoomSelect value={form.room} onChange={v => setForm(p => ({ ...p, room:v }))} cellInp={cellInp} /></>}
       <select value={form.end_time} onChange={e => setForm(p => ({ ...p, end_time:e.target.value }))} style={{ ...cellInp, marginBottom:6 }}>
         {TIMES.filter(t => t > time).map(t => <option key={t} value={t}>{t}까지</option>)}
       </select>
