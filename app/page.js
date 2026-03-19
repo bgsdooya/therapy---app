@@ -795,27 +795,45 @@ function Admin({ user, onLogout }) {
     if (!textInput.trim() || !selectedPatient) return;
     const lines = textInput.trim().split("\n").filter(l => l.trim());
     const parsed = [];
+    const DAY_PATTERNS = ["월수금","화목","월화수목금","월","화","수","목","금","토","일"];
     for (const line of lines) {
       const t = line.trim();
       if (!t) continue;
-      // 형식: "0900 운동치료" 또는 "09:00 운동치료"
+      // 시간 파싱
       const m = t.match(/^([0-9]{3,4}(?::[0-9]{2})?(?:~[0-9]{3,4}(?::[0-9]{2})?)?)\s+(.+)/);
       if (!m) continue;
       const timePart = m[1];
-      const typePart = m[2].trim();
-      // 시작/종료 파싱
+      let rest = m[2].trim();
+      // 시작/종료
       let startStr, endStr;
-      if (timePart.includes("~")) {
-        [startStr, endStr] = timePart.split("~");
-      } else {
-        startStr = timePart;
-        endStr = null;
-      }
+      if (timePart.includes("~")) { [startStr, endStr] = timePart.split("~"); }
+      else { startStr = timePart; endStr = null; }
       const start = parseTime(startStr);
       if (!start) continue;
       const end = endStr ? parseTime(endStr) : addMinutes(start, 30);
-      const type = resolveType(typePart);
-      parsed.push({ start_time: start, end_time: end, type });
+
+      // 치료사 파싱: "치료사 이름" 패턴
+      let therapist = "";
+      const therapistMatch = rest.match(/치료사\s+([^\s]+)/);
+      if (therapistMatch) {
+        therapist = therapistMatch[1];
+        rest = rest.replace(therapistMatch[0], "").trim();
+      }
+
+      // 요일 파싱 (치료명 뒤에 오는 요일)
+      let week_days = "";
+      for (const dp of DAY_PATTERNS) {
+        // 단어 경계로 요일 찾기
+        const re = new RegExp("(?:^|\\s)" + dp + "(?:\\s|$)");
+        if (re.test(rest)) {
+          week_days = dp;
+          rest = rest.replace(new RegExp("\\s*" + dp + "\\s*"), " ").trim();
+          break;
+        }
+      }
+
+      const type = resolveType(rest.trim());
+      parsed.push({ start_time: start, end_time: end, type, week_days, therapist });
     }
     if (parsed.length === 0) { flash("파싱 실패 - 형식을 확인해주세요"); return; }
     setSaving(true);
@@ -832,11 +850,14 @@ function Admin({ user, onLogout }) {
           day_type: tab === "specific" ? "weekday" : tab,
           specific_date: tab === "specific" ? specificDate : null,
           start_time: p.start_time, end_time: p.end_time,
-          type: p.type, therapist: "", room: "", week_days: "",
+          type: p.type,
+          therapist: noTherapist(p.type) ? "" : p.therapist,
+          room: isRFT(p.type) ? "운동치료실" : "",
+          week_days: p.week_days,
         }) });
       }
       await reloadSchedules(); setTextInput(""); setShowTextInput(false);
-      flash(`${parsed.length}개 등록 ✓ (치료사/치료실은 직접 입력해주세요)`);
+      flash(`${parsed.length}개 등록 ✓ (치료실은 직접 입력해주세요)`);
     } catch(e) { flash("저장 실패"); } finally { setSaving(false); }
   };
 
@@ -1002,10 +1023,13 @@ function Admin({ user, onLogout }) {
               {showTextInput && (
                 <div style={{ padding:"12px 16px", background:"#F0F8FF", borderBottom:"2px solid #EEF2F7" }}>
                   <div style={{ fontSize:12, fontWeight:700, color:"#2E7D9F", marginBottom:4 }}>📝 빠른 시간표 입력</div>
-                  <div style={{ fontSize:11, color:"#7A8FA0", marginBottom:8, background:"#fff", borderRadius:8, padding:"8px 10px", lineHeight:1.8 }}>
-                    <b>형식:</b> 시간(4자리) 치료명<br/>
-                    <b>예시:</b> 0900 운동치료 &nbsp;/&nbsp; 0930 FES &nbsp;/&nbsp; 1000 작업 &nbsp;/&nbsp; 1030 물리<br/>
-                    <span style={{ color:"#E07A00" }}>※ 치료사·치료실은 등록 후 직접 입력해주세요</span>
+                  <div style={{ fontSize:11, color:"#7A8FA0", marginBottom:8, background:"#fff", borderRadius:8, padding:"8px 10px", lineHeight:1.9 }}>
+                    <b>형식:</b> 시간 치료명 [요일] [치료사 이름]<br/>
+                    <span style={{ color:"#2E7D9F" }}>0900 운동치료 월수금 치료사 정용진</span><br/>
+                    <span style={{ color:"#2E7D9F" }}>0930 FES</span><br/>
+                    <span style={{ color:"#2E7D9F" }}>1000 작업치료 화목 치료사 박진성</span><br/>
+                    <span style={{ color:"#2E7D9F" }}>1030 물리치료 월</span><br/>
+                    <span style={{ color:"#E07A00" }}>※ 치료실은 등록 후 직접 입력해주세요</span>
                   </div>
                   <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
                     placeholder="시간표를 입력해주세요" 
