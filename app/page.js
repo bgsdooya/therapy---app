@@ -102,6 +102,11 @@ function tomorrowStr() {
   const d = new Date(); d.setDate(d.getDate()+1);
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
+// 동명이인 구분자 제거 (이숙희A → 이숙희)
+function displayName(name) {
+  return name ? name.replace(/[A-Za-z]$/, "") : name;
+}
+
 function getWdColor(week_days) {
   if (!week_days) return null;
   if (week_days === "월수금") return "#1565C0";
@@ -400,7 +405,7 @@ function Patient({ user, onLogout }) {
       {/* 헤더 */}
       <div style={{ background:"linear-gradient(135deg,#1A4A6B,#2E7D9F)", padding:"48px 20px 24px", color:"#fff" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", maxWidth:600, margin:"0 auto" }}>
-          <div><p style={{ margin:0, fontSize:15, opacity:0.8 }}>안녕하세요 👋</p><h2 style={{ margin:"4px 0 0", fontSize:26, fontWeight:800 }}>{user.name}님의 시간표</h2></div>
+          <div><p style={{ margin:0, fontSize:15, opacity:0.8 }}>안녕하세요 👋</p><h2 style={{ margin:"4px 0 0", fontSize:26, fontWeight:800 }}>{displayName(user.name)}님의 시간표</h2></div>
           <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:10, color:"#fff", padding:"9px 16px", fontSize:14, cursor:"pointer" }}>로그아웃</button>
         </div>
         <div style={{ display:"flex", gap:10, marginTop:20, maxWidth:600, margin:"20px auto 0" }}>
@@ -645,6 +650,7 @@ function Admin({ user, onLogout }) {
   const [textInput, setTextInput] = useState("");
   const [textInputMode, setTextInputMode] = useState("replace");
   const [showPatientList, setShowPatientList] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
@@ -943,6 +949,14 @@ function Admin({ user, onLogout }) {
               <span style={{ fontSize:13, fontWeight:700 }}>환자 목록</span>
               <button onClick={() => setShowAddPatient(p => !p)} style={{ background:"rgba(255,255,255,0.25)", border:"none", borderRadius:6, color:"#fff", width:26, height:26, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
             </div>
+            <div style={{ padding:"8px 10px", borderBottom:"1px solid #F0F4F8", background:"#F8FAFC" }}>
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="🔍 이름 검색"
+                style={{ width:"100%", padding:"6px 10px", borderRadius:8, border:"1.5px solid #DDE6EE", fontSize:12, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+              />
+            </div>
             {showAddPatient && (
               <div style={{ padding:10, background:"#FFFDE7", borderBottom:"1px solid #F0F4F8" }}>
                 <input value={newPatient.name} onChange={e => setNewPatient(p => ({ ...p, name: e.target.value }))} placeholder="이름 *" style={smallInp} />
@@ -955,7 +969,10 @@ function Admin({ user, onLogout }) {
               </div>
             )}
             {patients.length === 0 && !showAddPatient && <p style={{ textAlign:"center", color:"#7A8FA0", padding:20, fontSize:12 }}>환자 없음</p>}
-            {patients.map(p => (
+            {patients.filter(p => p.name.includes(searchQuery.trim())).length === 0 && searchQuery.trim() && (
+              <p style={{ textAlign:"center", color:"#7A8FA0", padding:16, fontSize:12 }}>검색 결과 없음</p>
+            )}
+            {patients.filter(p => p.name.includes(searchQuery.trim())).map(p => (
               <div key={p.id} style={{ borderBottom:"1px solid #F0F4F8" }}>
                 <div style={{ padding:"10px 14px", cursor:"pointer", background: selectedPatient?.id === p.id ? "#E8F4F8" : "#fff", display:"flex", justifyContent:"space-between", alignItems:"center" }}
                   onClick={() => { setSelectedPatient(p); setShowPatientList(false); }}>
