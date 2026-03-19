@@ -118,8 +118,18 @@ function getWdColor(week_days) {
 function isActiveToday(week_days) {
   if (!week_days) return true;
   const day = new Date().getDay(); // 0=일,1=월,2=화,3=수,4=목,5=금,6=토
-  if (week_days === "월수금") return [1, 3, 5].includes(day);
-  if (week_days === "화목") return [2, 4].includes(day);
+  const DAY_MAP = { "월":1, "화":2, "수":3, "목":4, "금":5, "토":6, "일":0 };
+  const PRESET_MAP = {
+    "월수금": [1,3,5], "화목": [2,4],
+    "월수": [1,3], "월금": [1,5], "수금": [3,5],
+    "월화": [1,2], "화수": [2,3], "목금": [4,5],
+    "월목": [1,4], "화금": [2,5], "수목": [3,4],
+    "월화수목금": [1,2,3,4,5],
+  };
+  if (PRESET_MAP[week_days]) return PRESET_MAP[week_days].includes(day);
+  // 직접선택 요일 (예: "월수", "화목금" 등 글자 조합)
+  const days = week_days.split("").map(d => DAY_MAP[d]).filter(d => d !== undefined);
+  if (days.length > 0) return days.includes(day);
   return true;
 }
 
@@ -809,7 +819,7 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
     if (!textInput.trim() || !selectedPatient) return;
     const lines = textInput.trim().split("\n").filter(l => l.trim());
     const parsed = [];
-    const DAY_PATTERNS = ["월수금","화목","월화수목금","월","화","수","목","금","토","일"];
+    const DAY_PATTERNS = ["월수금","화목","월수","월금","수금","월화","화수","목금","월목","화금","수목","월화수목금","월","화","수","목","금","토","일"];
     for (const line of lines) {
       const t = line.trim();
       if (!t) continue;
