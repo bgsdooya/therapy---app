@@ -547,7 +547,7 @@ function ScheduleCell({ time, schedules, onSave, onDelete }) {
 
   const handleSave = async () => {
     if (!form.type) return;
-    if (!noTherapist(form.type) && !form.therapist.trim()) return;
+    // 치료사/치료실 공란 허용
     await onSave(time, { ...form, therapist: noTherapist(form.type) ? "" : form.therapist, room: isRFT(form.type) ? "운동치료실" : form.room }, editTarget);
     setEditing(false);
   };
