@@ -844,6 +844,30 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
         rest = rest.replace(therapistMatch[0], "").trim();
       }
 
+      // 치료실 파싱: "치료실 값" 또는 직접 치료실명 인식
+      let room = "";
+      const roomMatch = rest.match(/치료실\s+([^\s]+)/);
+      if (roomMatch) {
+        room = roomMatch[1];
+        rest = rest.replace(roomMatch[0], "").trim();
+      } else {
+        // 치료실명 직접 인식
+        const ROOM_KEYWORDS = [
+          { pattern: /운동\s*BT\s*[-－]\s*(\d+)/i, resolve: (m) => `운동 BT-${m[1]}` },
+          { pattern: /작업\s*BT\s*[-－]\s*(\d+)/i, resolve: (m) => `작업 BT-${m[1]}` },
+          { pattern: /BT\s*[-－]\s*(\d+)/i, resolve: (m) => `BT-${m[1]}` },
+          { pattern: /작업\s*치료테이블/i, resolve: () => "작업 치료테이블" },
+          { pattern: /연하치료실/i, resolve: () => "연하치료실" },
+          { pattern: /인지치료실/i, resolve: () => "인지치료실" },
+          { pattern: /ADL실/i, resolve: () => "ADL실" },
+          { pattern: /소아치료실/i, resolve: () => "소아치료실" },
+        ];
+        for (const { pattern, resolve } of ROOM_KEYWORDS) {
+          const m = rest.match(pattern);
+          if (m) { room = resolve(m); rest = rest.replace(m[0], "").trim(); break; }
+        }
+      }
+
       // 요일 파싱 (치료명 뒤에 오는 요일)
       let week_days = "";
       for (const dp of DAY_PATTERNS) {
@@ -857,7 +881,7 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
       }
 
       const type = resolveType(rest.trim());
-      parsed.push({ start_time: start, end_time: end, type, week_days, therapist });
+      parsed.push({ start_time: start, end_time: end, type, week_days, therapist, room });
     }
     if (parsed.length === 0) { flash("파싱 실패 - 형식을 확인해주세요"); return; }
     setSaving(true);
@@ -876,12 +900,12 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
           start_time: p.start_time, end_time: p.end_time,
           type: p.type,
           therapist: noTherapist(p.type) ? "" : p.therapist,
-          room: isRFT(p.type) ? "운동치료실" : "",
+          room: isRFT(p.type) ? "운동치료실" : p.room,
           week_days: p.week_days,
         }) });
       }
       await reloadSchedules(); setTextInput(""); setShowTextInput(false);
-      flash(`${parsed.length}개 등록 ✓ (치료실은 직접 입력해주세요)`);
+      flash(`${parsed.length}개 등록 ✓`);
     } catch(e) { flash("저장 실패"); } finally { setSaving(false); }
   };
 
@@ -1072,7 +1096,8 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
                     <span style={{ color:"#2E7D9F" }}>0930 FES</span><br/>
                     <span style={{ color:"#2E7D9F" }}>1000 작업치료 화목 치료사 박진성</span><br/>
                     <span style={{ color:"#2E7D9F" }}>1030 물리치료 월</span><br/>
-                    <span style={{ color:"#E07A00" }}>※ 치료실은 등록 후 직접 입력해주세요</span>
+                    <span style={{ color:"#2E7D52" }}>0900 운동치료 월수금 치료사 정용진 운동 BT-4</span><br/>
+                    <span style={{ color:"#E07A00" }}>※ 치료실 미입력 시 나중에 직접 수정 가능</span>
                   </div>
                   <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
                     placeholder="시간표를 입력해주세요" 
