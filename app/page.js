@@ -1228,10 +1228,65 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
 // 팀장(SuperAdmin) 화면 - Admin + 로그 조회
 // ─────────────────────────────────────
 function SuperAdmin({ user, onLogout }) {
-  const [mainTab, setMainTab] = useState("admin"); // "admin" | "logs"
+  const [mainTab, setMainTab] = useState("admin");
   const [logs, setLogs] = useState([]);
   const [logsLoad, setLogsLoad] = useState(false);
   const [logFilter, setLogFilter] = useState("");
+  const [showMsgPanel, setShowMsgPanel] = useState(false);
+  const [showHolidayPanel, setShowHolidayPanel] = useState(false);
+  const [msgText, setMsgText] = useState("");
+  const [msgTarget, setMsgTarget] = useState(null);
+  const [patients, setPatients] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [newHoliday, setNewHoliday] = useState({ date:"", memo:"" });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+  const writeLog = async (action, detail="") => {
+    try { await api("logs", { method:"POST", body: JSON.stringify({ admin_name: user.name, action, detail }) }); } catch(e) {}
+  };
+
+  useEffect(() => {
+    api("users?order=name.asc").then(d => setPatients((d||[]).filter(u => u.role==="patient"))).catch(()=>{});
+    api("holidays?order=holiday_date.asc").then(d => setHolidays(d||[])).catch(()=>{});
+  }, []);
+
+  const handleSendMsg = async () => {
+    if (!msgText.trim()) return;
+    if (Array.isArray(msgTarget) && msgTarget.length === 0) return;
+    setSaving(true);
+    try {
+      const targets = msgTarget === null ? patients : msgTarget;
+      for (const p of targets) {
+        await api("messages", { method:"POST", body: JSON.stringify({ patient_name: p.name, content: msgText.trim() }) });
+        if (p.fcm_token) {
+          try { await fetch("/api/notify", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ token: p.fcm_token, title:"🏥 양산제일병원 재활치료팀", body: msgText.trim() }) }); } catch(e) {}
+        }
+      }
+      const logDetail = msgTarget === null ? `전체 ${patients.length}명` : Array.isArray(msgTarget) ? msgTarget.map(t=>t.name).join(", ") : msgTarget.name;
+      await writeLog("메시지 전송", `${logDetail} - ${msgText.trim().slice(0,30)}`);
+      setMsgText(""); setShowMsgPanel(false);
+      flash(msgTarget === null ? `전체 ${patients.length}명 전송 ✓` : `${Array.isArray(msgTarget)?msgTarget.length:1}명 전송 ✓`);
+    } catch(e) { flash("실패"); } finally { setSaving(false); }
+  };
+
+  const handleAddHoliday = async () => {
+    if (!newHoliday.date) return;
+    setSaving(true);
+    try {
+      await api("holidays", { method:"POST", body: JSON.stringify({ holiday_date: newHoliday.date, memo: newHoliday.memo.trim() }) });
+      await writeLog("휴무일 등록", `${newHoliday.date} ${newHoliday.memo}`);
+      setNewHoliday({ date:"", memo:"" });
+      api("holidays?order=holiday_date.asc").then(d => setHolidays(d||[]));
+      flash("휴무일 등록 ✓");
+    } catch(e) { flash("실패"); } finally { setSaving(false); }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    setSaving(true);
+    try { await api(`holidays?id=eq.${id}`, { method:"DELETE" }); api("holidays?order=holiday_date.asc").then(d => setHolidays(d||[])); flash("삭제 ✓"); }
+    catch(e) { flash("실패"); } finally { setSaving(false); }
+  };
 
   const loadLogs = async () => {
     setLogsLoad(true);
@@ -1261,7 +1316,11 @@ function SuperAdmin({ user, onLogout }) {
             <p style={{ margin:0, fontSize:12, opacity:0.75 }}>👑 양산제일병원 재활치료팀장</p>
             <h2 style={{ margin:"3px 0 0", fontSize:20, fontWeight:800 }}>{user.name}님</h2>
           </div>
-          <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer" }}>로그아웃</button>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={() => { setShowMsgPanel(p => !p); }} style={{ background:"rgba(255,200,0,0.3)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>📢 메시지</button>
+            <button onClick={() => setShowHolidayPanel(p => !p)} style={{ background:"rgba(255,80,80,0.3)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>🗓 휴무일</button>
+            <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer" }}>로그아웃</button>
+          </div>
         </div>
         <div style={{ maxWidth:900, margin:"0 auto", display:"flex", gap:4 }}>
           {[["admin","📋 시간표 관리"],["logs","📊 활동 로그"]].map(([k,l]) => (
@@ -1270,6 +1329,63 @@ function SuperAdmin({ user, onLogout }) {
           ))}
         </div>
       </div>
+
+      {/* 알림 */}
+      {msg && <div style={{ maxWidth:900, margin:"8px auto 0", padding:"0 14px" }}><span style={{ background:"#4CAF8A", color:"#fff", padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:700 }}>{msg}</span></div>}
+
+      {/* 메시지 패널 */}
+      {showMsgPanel && (
+        <div style={{ maxWidth:900, margin:"8px auto 0", padding:"0 14px" }}>
+          <div style={{ background:"#FFFDE7", borderRadius:14, padding:"14px 16px", border:"1.5px solid #FFE082" }}>
+            <div style={{ fontSize:14, fontWeight:800, color:"#E07A00", marginBottom:10 }}>📢 환자에게 메시지</div>
+            <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+              <button onClick={() => setMsgTarget(null)} style={{ padding:"5px 14px", borderRadius:8, border:`1.5px solid ${msgTarget===null?"#E07A00":"#DDE6EE"}`, background:msgTarget===null?"#E07A00":"#fff", color:msgTarget===null?"#fff":"#555", fontSize:12, fontWeight:700, cursor:"pointer" }}>📢 전체</button>
+              <button onClick={() => setMsgTarget([])} style={{ padding:"5px 14px", borderRadius:8, border:`1.5px solid ${Array.isArray(msgTarget)?"#2E7D9F":"#DDE6EE"}`, background:Array.isArray(msgTarget)?"#E8F4F8":"#fff", color:"#2E7D9F", fontSize:12, fontWeight:700, cursor:"pointer" }}>개별 선택</button>
+            </div>
+            {Array.isArray(msgTarget) && (
+              <div style={{ marginBottom:8 }}>
+                <select onChange={e => { const id=e.target.value; if(!id) return; const p=patients.find(p=>p.id===id); if(p && !msgTarget.some(t=>t.id===id)) setMsgTarget(prev=>[...prev,p]); e.target.value=""; }} style={{ width:"100%", padding:"6px 10px", borderRadius:8, border:"1.5px solid #DDE6EE", fontSize:13, marginBottom:6 }}>
+                  <option value="">환자 선택</option>
+                  {patients.map(p => <option key={p.id} value={p.id} disabled={msgTarget.some(t=>t.id===p.id)}>{p.name} {p.room?`(${p.room})`:""}</option>)}
+                </select>
+                {msgTarget.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{msgTarget.map(p => <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:8, background:"#E07A00", color:"#fff", fontSize:12, fontWeight:700 }}>{p.name}<button onClick={() => setMsgTarget(prev=>prev.filter(t=>t.id!==p.id))} style={{ background:"none", border:"none", color:"#fff", fontSize:13, cursor:"pointer", padding:0 }}>✕</button></span>)}</div>}
+              </div>
+            )}
+            <textarea value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="메시지를 적어주세요" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid #FFD54F", fontSize:13, resize:"vertical", minHeight:72, boxSizing:"border-box", fontFamily:"inherit", marginBottom:8, outline:"none" }} />
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+              <button onClick={() => setShowMsgPanel(false)} style={{ padding:"8px 16px", borderRadius:8, border:"1px solid #DDE6EE", background:"#fff", fontSize:12, cursor:"pointer" }}>취소</button>
+              <button onClick={handleSendMsg} disabled={saving||!msgText.trim()||(Array.isArray(msgTarget)&&msgTarget.length===0)} style={{ padding:"8px 20px", borderRadius:8, border:"none", background:(saving||!msgText.trim()||(Array.isArray(msgTarget)&&msgTarget.length===0))?"#aaa":"#E07A00", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                {msgTarget===null?`📢 전체 ${patients.length}명 전송`:Array.isArray(msgTarget)&&msgTarget.length===0?"수신자 선택하세요":`📢 ${msgTarget.length}명 전송`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 휴무일 패널 */}
+      {showHolidayPanel && (
+        <div style={{ maxWidth:900, margin:"8px auto 0", padding:"0 14px" }}>
+          <div style={{ background:"#FFF0F0", borderRadius:14, padding:"14px 16px", border:"1.5px solid #FFCDD2" }}>
+            <div style={{ fontSize:14, fontWeight:800, color:"#C62828", marginBottom:10 }}>🗓 휴무일 관리</div>
+            <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap", alignItems:"center" }}>
+              <input type="date" value={newHoliday.date} onChange={e => setNewHoliday(p=>({...p,date:e.target.value}))} style={{ padding:"6px 10px", borderRadius:8, border:"1.5px solid #FFCDD2", fontSize:13, outline:"none" }} />
+              <input value={newHoliday.memo} onChange={e => setNewHoliday(p=>({...p,memo:e.target.value}))} placeholder="메모 (예: 설날)" style={{ flex:1, minWidth:100, padding:"6px 10px", borderRadius:8, border:"1.5px solid #FFCDD2", fontSize:13, outline:"none" }} />
+              <button onClick={handleAddHoliday} disabled={saving||!newHoliday.date} style={{ padding:"6px 16px", borderRadius:8, border:"none", background:"#C62828", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>등록</button>
+            </div>
+            {holidays.length===0 ? <p style={{ fontSize:12, color:"#aaa", margin:0 }}>등록된 휴무일 없음</p> : (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                {holidays.map(h => (
+                  <div key={h.id} style={{ display:"flex", alignItems:"center", gap:6, background:"#fff", borderRadius:8, padding:"5px 10px", border:"1px solid #FFCDD2" }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:"#C62828" }}>{h.holiday_date}</span>
+                    {h.memo && <span style={{ fontSize:12, color:"#7A8FA0" }}>{h.memo}</span>}
+                    <button onClick={() => handleDeleteHoliday(h.id)} style={{ background:"none", border:"none", color:"#ccc", fontSize:13, cursor:"pointer", padding:0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {mainTab === "admin"
         ? <Admin user={user} onLogout={onLogout} isSuperAdmin={true} />
