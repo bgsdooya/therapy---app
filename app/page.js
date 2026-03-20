@@ -1006,12 +1006,10 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
           </div>
         </div>
       )}
-      {isSuperAdmin && (
-        <div style={{ maxWidth:900, margin:"0 auto", padding:"8px 14px 0", display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+      {isSuperAdmin && (msg || saving) && (
+        <div style={{ maxWidth:900, margin:"0 auto", padding:"8px 14px 0", display:"flex", gap:8 }}>
           {msg && <span style={{ background:"#4CAF8A", color:"#fff", padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:700 }}>{msg}</span>}
           {saving && <span style={{ color:"#7A8FA0", fontSize:12 }}>처리 중...</span>}
-          <button onClick={() => { setShowMsg(p => !p); setMsgTarget(null); setMsgText(""); }} style={{ background:"#E07A00", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>📢 메시지</button>
-          <button onClick={() => setShowHoliday(p => !p)} style={{ background:"#C62828", border:"none", borderRadius:8, color:"#fff", padding:"7px 12px", fontSize:12, cursor:"pointer", fontWeight:700 }}>🗓 휴무일</button>
         </div>
       )}
 
