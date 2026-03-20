@@ -1,5 +1,42 @@
 "use client";
 import { useState, useEffect } from "react";
+import { initializeApp, getApps } from "firebase/app";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAva-S1bxT0J_bp3Xdh9usrDIgNpbNkNYo",
+  authDomain: "yangsanjeil-therapy.firebaseapp.com",
+  projectId: "yangsanjeil-therapy",
+  storageBucket: "yangsanjeil-therapy.firebasestorage.app",
+  messagingSenderId: "319760379198",
+  appId: "1:319760379198:web:e512f5c8af2cd89fef906f",
+};
+const VAPID_KEY = "BGoDJykM1cwE4Ocq5_FahUrSkanVS8Z37iNKPe24PPmNgI7wokdqSdLwsfOOZDBbFzLKEg_zEfGFSKCwTAkP46o";
+
+function getFirebaseMessaging() {
+  if (typeof window === "undefined") return null;
+  try {
+    const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+    return getMessaging(app);
+  } catch(e) { return null; }
+}
+
+async function registerFCMToken(userId) {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+    const messaging = getFirebaseMessaging();
+    if (!messaging) return;
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    if (!token) return;
+    // Supabase에 토큰 저장
+    await api(`users?id=eq.${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ fcm_token: token }),
+    });
+    return token;
+  } catch(e) { console.error("FCM 등록 실패:", e); }
+}
 
 const SU = "https://assautgcinohojjgufjn.supabase.co";
 const SK = "sb_publishable_zew7hL6PtkxDqrbN5ocUZg_cHBJ4fcw";
@@ -248,6 +285,17 @@ function Patient({ user, onLogout }) {
   const todayItems = list.filter(s => isActiveToday(s.week_days));
   const otherItems = list.filter(s => !isActiveToday(s.week_days));
 
+  // FCM 포그라운드 메시지 수신
+  useEffect(() => {
+    const messaging = getFirebaseMessaging();
+    if (!messaging) return;
+    const unsub = onMessage(messaging, (payload) => {
+      const { title, body } = payload.notification || {};
+      setAdminMsg({ content: body || title || "새 알림", created_at: new Date().toISOString(), id: Date.now() });
+    });
+    return () => unsub();
+  }, []);
+
   // 관리자 메시지
   const [adminMsg, setAdminMsg] = useState(null);
   useEffect(() => {
@@ -287,9 +335,14 @@ function Patient({ user, onLogout }) {
 
   useEffect(() => {
     if (isOutpatient) {
+      let outpatientAlarmFired = false;
       const t = setInterval(() => {
         const now = new Date();
-        if (now.getHours() === 18 && now.getMinutes() === 0) {
+        const h = now.getHours(); const m = now.getMinutes();
+        // 18:00 ~ 18:04 사이에 한 번만 발동 (30초 간격 체크 대응)
+        if (h === 18 && m < 5) {
+          if (outpatientAlarmFired) return;
+          outpatientAlarmFired = true;
           if (isHoliday(tomorrowStr())) return;
           const items = list.filter(s => !dismissed.includes("out_" + s.start_time + s.type));
           if (items.length > 0) {
@@ -299,6 +352,8 @@ function Patient({ user, onLogout }) {
               new Notification("📋 내일 치료 일정", { body: items.map(s => s.start_time + " " + s.type).join("\n") + eval_, icon:"/icon-192.png", requireInteraction:true });
             }
           }
+        } else if (h !== 18) {
+          outpatientAlarmFired = false; // 시간 지나면 초기화
         }
       }, 30000);
       return () => clearInterval(t);
@@ -815,7 +870,19 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
     setSaving(true);
     try {
       const targets = msgTarget === null ? patients : msgTarget;
-      for (const p of targets) await api("messages", { method:"POST", body: JSON.stringify({ patient_name: p.name, content: msgText.trim() }) });
+      for (const p of targets) {
+        await api("messages", { method:"POST", body: JSON.stringify({ patient_name: p.name, content: msgText.trim() }) });
+        // FCM 푸시 발송
+        if (p.fcm_token) {
+          try {
+            await fetch("/api/notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: p.fcm_token, title: "🏥 양산제일병원 재활치료팀", body: msgText.trim() }),
+            });
+          } catch(e) { console.error("FCM 발송 실패:", e); }
+        }
+      }
       setMsgText(""); setShowMsg(false);
       const logDetail = msgTarget === null ? `전체 ${patients.length}명` : Array.isArray(msgTarget) ? msgTarget.map(t=>t.name).join(", ") : msgTarget.name;
       flash(msgTarget === null ? `전체 ${patients.length}명 전송 ✓` : `${Array.isArray(msgTarget) ? msgTarget.length : 1}명 전송 ✓`);
@@ -1277,7 +1344,14 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  const handleLogin = (u) => { try { localStorage.setItem("yc_user", JSON.stringify(u)); } catch(e) {} setUser(u); };
+  const handleLogin = async (u) => {
+    try { localStorage.setItem("yc_user", JSON.stringify(u)); } catch(e) {}
+    setUser(u);
+    // FCM 토큰 등록 (환자만)
+    if (u.role === "patient") {
+      setTimeout(() => registerFCMToken(u.id), 2000);
+    }
+  };
   const handleLogout = () => { try { localStorage.removeItem("yc_user"); } catch(e) {} setUser(null); };
 
   if (splash) return <Splash />;
