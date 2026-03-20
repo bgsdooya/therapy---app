@@ -522,6 +522,45 @@ function Patient({ user, onLogout }) {
   );
 }
 // ─────────────────────────────────────
+// 메시지 환자 검색 컴포넌트
+// ─────────────────────────────────────
+function MsgPatientSearch({ patients, msgTarget, setMsgTarget }) {
+  const [search, setSearch] = useState("");
+  const filtered = patients
+    .filter(p => p.name.includes(search.trim()))
+    .sort((a,b) => a.name.localeCompare(b.name, "ko"));
+
+  return (
+    <div>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="🔍 이름 검색"
+        style={{ width:"100%", padding:"6px 10px", borderRadius:8, border:"1.5px solid #DDE6EE", fontSize:13, marginBottom:5, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+      />
+      {search.trim() && (
+        <div style={{ maxHeight:160, overflowY:"auto", border:"1.5px solid #DDE6EE", borderRadius:8, background:"#fff", marginBottom:4 }}>
+          {filtered.length === 0
+            ? <div style={{ padding:"8px 12px", fontSize:12, color:"#aaa" }}>검색 결과 없음</div>
+            : filtered.map(p => {
+              const already = msgTarget.some(t => t.id === p.id);
+              return (
+                <div key={p.id}
+                  onClick={() => { if (!already) { setMsgTarget(prev => [...prev, p]); setSearch(""); } }}
+                  style={{ padding:"8px 12px", fontSize:13, cursor: already ? "default" : "pointer", background: already ? "#F0F4F8" : "#fff", color: already ? "#aaa" : "#1A2B3C", borderBottom:"1px solid #F0F4F8", display:"flex", justifyContent:"space-between" }}>
+                  <span>{p.name} {p.room ? <span style={{ fontSize:11, color:"#7A8FA0" }}>({p.room})</span> : ""}</span>
+                  {already && <span style={{ fontSize:11, color:"#aaa" }}>추가됨</span>}
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────
 // 치료실 선택 컴포넌트
 // ─────────────────────────────────────
 const ROOM_PRESETS = ["운동 BT-", "작업 BT-", "작업 치료테이블", "연하치료실", "인지치료실", "ADL실", "소아치료실", "직접입력"];
@@ -883,7 +922,7 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
           } catch(e) { console.error("FCM 발송 실패:", e); }
         }
       }
-      setMsgText(""); setShowMsg(false);
+      setMsgText(""); setMsgTarget(null); setShowMsg(false);
       const logDetail = msgTarget === null ? `전체 ${patients.length}명` : Array.isArray(msgTarget) ? msgTarget.map(t=>t.name).join(", ") : msgTarget.name;
       flash(msgTarget === null ? `전체 ${patients.length}명 전송 ✓` : `${Array.isArray(msgTarget) ? msgTarget.length : 1}명 전송 ✓`);
       await writeLog("메시지 전송", `${logDetail} - ${msgText.trim().slice(0,30)}`);
@@ -1024,11 +1063,8 @@ function Admin({ user, onLogout, isSuperAdmin=false }) {
             </div>
             {Array.isArray(msgTarget) && (
               <div style={{ marginBottom:8 }}>
-                <select onChange={e => { const id = e.target.value; if (!id) return; const p = patients.find(p => p.id === id); if (p && !msgTarget.some(t => t.id === id)) setMsgTarget(prev => [...prev, p]); e.target.value = ""; }} style={{ width:"100%", padding:"6px 10px", borderRadius:8, border:"1.5px solid #DDE6EE", fontSize:13, marginBottom:6 }}>
-                  <option value="">환자 선택 (가나다순)</option>
-                  {[...patients].sort((a,b) => a.name.localeCompare(b.name,"ko")).map(p => <option key={p.id} value={p.id} disabled={msgTarget.some(t => t.id === p.id)}>{p.name} {p.room ? `(${p.room})` : ""}</option>)}
-                </select>
-                {msgTarget.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{msgTarget.map(p => <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:8, background:"#E07A00", color:"#fff", fontSize:12, fontWeight:700 }}>{p.name}<button onClick={() => setMsgTarget(prev => prev.filter(t => t.id !== p.id))} style={{ background:"none", border:"none", color:"#fff", fontSize:13, cursor:"pointer", padding:0 }}>✕</button></span>)}</div>}
+                <MsgPatientSearch patients={patients} msgTarget={msgTarget} setMsgTarget={setMsgTarget} />
+                {msgTarget.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>{msgTarget.map(p => <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:8, background:"#E07A00", color:"#fff", fontSize:12, fontWeight:700 }}>{p.name}<button onClick={() => setMsgTarget(prev => prev.filter(t => t.id !== p.id))} style={{ background:"none", border:"none", color:"#fff", fontSize:13, cursor:"pointer", padding:0 }}>✕</button></span>)}</div>}
               </div>
             )}
             <textarea value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="메시지를 적어주세요" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid #FFD54F", fontSize:13, resize:"vertical", minHeight:72, boxSizing:"border-box", fontFamily:"inherit", marginBottom:8, outline:"none" }} />
@@ -1263,7 +1299,7 @@ function SuperAdmin({ user, onLogout }) {
       }
       const logDetail = msgTarget === null ? `전체 ${patients.length}명` : Array.isArray(msgTarget) ? msgTarget.map(t=>t.name).join(", ") : msgTarget.name;
       await writeLog("메시지 전송", `${logDetail} - ${msgText.trim().slice(0,30)}`);
-      setMsgText(""); setShowMsgPanel(false);
+      setMsgText(""); setMsgTarget(null); setShowMsgPanel(false);
       flash(msgTarget === null ? `전체 ${patients.length}명 전송 ✓` : `${Array.isArray(msgTarget)?msgTarget.length:1}명 전송 ✓`);
     } catch(e) { flash("실패"); } finally { setSaving(false); }
   };
@@ -1342,11 +1378,8 @@ function SuperAdmin({ user, onLogout }) {
             </div>
             {Array.isArray(msgTarget) && (
               <div style={{ marginBottom:8 }}>
-                <select onChange={e => { const id=e.target.value; if(!id) return; const p=patients.find(p=>p.id===id); if(p && !msgTarget.some(t=>t.id===id)) setMsgTarget(prev=>[...prev,p]); e.target.value=""; }} style={{ width:"100%", padding:"6px 10px", borderRadius:8, border:"1.5px solid #DDE6EE", fontSize:13, marginBottom:6 }}>
-                  <option value="">환자 선택</option>
-                  {patients.map(p => <option key={p.id} value={p.id} disabled={msgTarget.some(t=>t.id===p.id)}>{p.name} {p.room?`(${p.room})`:""}</option>)}
-                </select>
-                {msgTarget.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{msgTarget.map(p => <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:8, background:"#E07A00", color:"#fff", fontSize:12, fontWeight:700 }}>{p.name}<button onClick={() => setMsgTarget(prev=>prev.filter(t=>t.id!==p.id))} style={{ background:"none", border:"none", color:"#fff", fontSize:13, cursor:"pointer", padding:0 }}>✕</button></span>)}</div>}
+                <MsgPatientSearch patients={patients} msgTarget={msgTarget} setMsgTarget={setMsgTarget} />
+                {msgTarget.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>{msgTarget.map(p => <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:8, background:"#E07A00", color:"#fff", fontSize:12, fontWeight:700 }}>{p.name}<button onClick={() => setMsgTarget(prev=>prev.filter(t=>t.id!==p.id))} style={{ background:"none", border:"none", color:"#fff", fontSize:13, cursor:"pointer", padding:0 }}>✕</button></span>)}</div>}
               </div>
             )}
             <textarea value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="메시지를 적어주세요" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid #FFD54F", fontSize:13, resize:"vertical", minHeight:72, boxSizing:"border-box", fontFamily:"inherit", marginBottom:8, outline:"none" }} />
